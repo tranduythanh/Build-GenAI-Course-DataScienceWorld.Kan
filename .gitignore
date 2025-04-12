@@ -5,3 +5,7 @@
 **/.pytest_cache
 **/.pytest_cache
 **/__pycache__
+*.pt
+unit04/dev-v2.0.json
+unit04/ner_adjusted.csv
+unit04/train-v2.0.json
