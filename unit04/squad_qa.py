@@ -25,8 +25,14 @@ class SQuADProcessor:
         return self.vocab, self.vocab_size
 
     def tokenize(self, text):
-        """Simple whitespace tokenization"""
-        return text.split()
+        """Improved tokenization with basic preprocessing"""
+        # Convert to lowercase and remove punctuation for better matching
+        text = text.lower()
+        # Replace common punctuation with spaces
+        for char in ',.!?;:()[]{}"':
+            text = text.replace(char, ' ')
+        # Split on whitespace and filter out empty tokens
+        return [token for token in text.split() if token]
 
     def convert_tokens_to_ids(self, tokens):
         """Convert tokens to ids using vocabulary"""
@@ -171,6 +177,7 @@ class SQuADProcessor:
                         end_position = orig_end_idx - span_start + len(question_tokens) + 2
                     else:
                         # Answer not in this span
+                        # Use 0 as a valid position for the [CLS] token
                         start_position = 0  # [CLS] token
                         end_position = 0
                 else:
@@ -258,8 +265,17 @@ class BERTForQuestionAnswering(nn.Module):
         # Ensure attention_mask is a tensor if provided
         if attention_mask is not None and not isinstance(attention_mask, torch.Tensor):
             attention_mask = torch.tensor(attention_mask, dtype=torch.bool)
+        else:
+            # Create default attention mask if none provided
+            attention_mask = (input_ids != 0).long()
 
-        # Get encoder outputs
+        # Use token_type_ids if provided (for segment embeddings)
+        # This helps the model distinguish between question and context
+        if token_type_ids is not None and not isinstance(token_type_ids, torch.Tensor):
+            token_type_ids = torch.tensor(token_type_ids, dtype=torch.long)
+
+        # Get encoder outputs - pass token_type_ids to encoder if it supports it
+        # For now, we'll just use input_ids and attention_mask
         sequence_output = self.bert_encoder(input_ids, attention_mask)
 
         # Apply dropout
@@ -281,10 +297,15 @@ class BERTForQuestionAnswering(nn.Module):
 def calculate_metrics(predictions, labels):
     exact_match = 0
     f1_sum = 0
+    answerable_accuracy = 0
 
     for example_id in predictions:
         pred = predictions[example_id]
         label = labels[example_id]
+
+        # Track answerable accuracy separately
+        if pred['is_impossible'] == label['is_impossible']:
+            answerable_accuracy += 1
 
         # Check if both prediction and label agree on impossibility
         if pred['is_impossible'] == label['is_impossible']:
@@ -308,13 +329,19 @@ def calculate_metrics(predictions, labels):
                         f1_sum += 0
                     else:
                         intersection = len(pred_span.intersection(label_span))
-                        precision = intersection / len(pred_span)
-                        recall = intersection / len(label_span)
+                        precision = intersection / len(pred_span) if len(pred_span) > 0 else 0
+                        recall = intersection / len(label_span) if len(label_span) > 0 else 0
 
                         f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0
                         f1_sum += f1
 
-    return exact_match / len(predictions), f1_sum / len(predictions)
+    metrics = {
+        'exact_match': exact_match / len(predictions),
+        'f1': f1_sum / len(predictions),
+        'answerable_accuracy': answerable_accuracy / len(predictions)
+    }
+
+    return metrics
 
 # Prediction function
 def predict(model, processor, question, context, device, max_seq_length=384):
@@ -347,9 +374,10 @@ def predict(model, processor, question, context, device, max_seq_length=384):
 
     # Pad to max_seq_length
     padding_length = max_seq_length - len(input_ids)
-    input_ids += [0] * padding_length
-    attention_mask += [0] * padding_length
-    token_type_ids += [0] * padding_length
+    if padding_length > 0:
+        input_ids += [0] * padding_length
+        attention_mask += [0] * padding_length
+        token_type_ids += [0] * padding_length
 
     # Truncate if still too long
     input_ids = input_ids[:max_seq_length]
@@ -365,37 +393,53 @@ def predict(model, processor, question, context, device, max_seq_length=384):
     with torch.no_grad():
         start_logits, end_logits, answerable_logits = model(
             input_ids=input_ids,
-            attention_mask=attention_mask
+            attention_mask=attention_mask,
+            token_type_ids=token_type_ids
         )
 
-    # Check if the question is answerable (with a lower threshold to favor answerable)
-    is_impossible = torch.sigmoid(answerable_logits[0]) >= 0.5
+    # Check if the question is answerable - use a higher threshold to avoid false negatives
+    # The model seems to be biased toward classifying questions as unanswerable
+    is_impossible = torch.sigmoid(answerable_logits[0]) >= 0.8
 
     if is_impossible:
         return "Unanswerable question"
 
     # Get the most likely start and end positions
-    start_idx = torch.argmax(start_logits, dim=1)[0].item()
-    end_idx = torch.argmax(end_logits, dim=1)[0].item()
+    # Ensure we only consider valid positions (not in question or special tokens)
+    # The valid range starts after [SEP] token following the question
+    question_end_idx = len(question_tokens) + 1  # +1 for [CLS] and +1 for [SEP]
 
-    # Debug print statements
-    print(f"Start index: {start_idx}, End index: {end_idx}")
+    # Apply a mask to prevent selecting positions in the question
+    start_mask = torch.zeros_like(start_logits)
+    start_mask[0, question_end_idx:] = 1
+    masked_start_logits = start_logits * start_mask
 
-    # Make sure end_idx >= start_idx
-    if end_idx < start_idx:
-        end_idx = start_idx
+    # Get the most likely start position
+    start_idx = torch.argmax(masked_start_logits, dim=1)[0].item()
+
+    # Only consider end positions after the predicted start position
+    end_mask = torch.zeros_like(end_logits)
+    end_mask[0, start_idx:] = 1
+    masked_end_logits = end_logits * end_mask
+    end_idx = torch.argmax(masked_end_logits, dim=1)[0].item()
+
+    # If we got invalid indices, fall back to the original approach
+    if start_idx == 0 and torch.sum(start_mask) > 0:
+        start_idx = torch.argmax(start_logits, dim=1)[0].item()
+        end_idx = torch.argmax(end_logits[0, start_idx:], dim=0).item() + start_idx
 
     # Extract answer tokens
     answer_tokens = tokens[start_idx:end_idx+1]
-
-    # Debug print statement
-    print(f"Answer tokens: {answer_tokens}")
 
     # Convert tokens to text
     answer = ' '.join(answer_tokens)
 
     # Clean up answer
     answer = answer.replace('[CLS]', '').replace('[SEP]', '').strip()
+
+    # If answer is empty or only contains special tokens, return "No answer found"
+    if not answer or answer.isspace():
+        return "No answer found"
 
     return answer
 
@@ -407,9 +451,9 @@ def main():
     device = torch.device('cpu')
     print(f"Using device: {device}")
 
-    # Process data (limit to 500 examples for faster processing)
+    # Process data (limit to 1000 examples for faster processing)
     processor = SQuADProcessor()
-    examples, features, vocab, vocab_size = processor.process_data('dev-v2.0.json', max_examples=1000)
+    _, features, _, vocab_size = processor.process_data('dev-v2.0.json', max_examples=100000)
 
     # Split data into train and validation sets
     train_features, val_features = train_test_split(features, test_size=0.1, random_state=42)
@@ -430,12 +474,16 @@ def main():
     model = BERTForQuestionAnswering(vocab_size=vocab_size)
     model.to(device)
 
-    # Initialize optimizer
-    optimizer = optim.AdamW(model.parameters(), lr=3e-5)
-
-    # Train for a few epochs
-    print("Training model...")
+    # Set number of epochs
     num_epochs = 10
+    print("Training model...")
+
+    # Initialize optimizer with weight decay
+    optimizer = optim.AdamW(model.parameters(), lr=3e-5, weight_decay=0.01)
+
+    # Learning rate scheduler
+    total_steps = len(train_loader) * num_epochs
+    scheduler = optim.lr_scheduler.OneCycleLR(optimizer, max_lr=3e-5, total_steps=total_steps)
     best_val_loss = float('inf')
 
     for epoch in range(num_epochs):
@@ -456,25 +504,39 @@ def main():
             # Forward pass
             start_logits, end_logits, answerable_logits = model(
                 input_ids=input_ids,
-                attention_mask=attention_mask
+                attention_mask=attention_mask,
+                token_type_ids=token_type_ids
             )
 
             # Calculate loss
             # For start and end positions
-            start_loss = nn.CrossEntropyLoss()(start_logits, start_positions)
-            end_loss = nn.CrossEntropyLoss()(end_logits, end_positions)
+            # Ensure all positions are valid (non-negative)
+            # CrossEntropyLoss requires targets to be non-negative and < num_classes
+            valid_start_positions = torch.clamp(start_positions, min=0, max=start_logits.size(1)-1)
+            valid_end_positions = torch.clamp(end_positions, min=0, max=end_logits.size(1)-1)
+
+            start_loss = nn.CrossEntropyLoss()(start_logits, valid_start_positions)
+            end_loss = nn.CrossEntropyLoss()(end_logits, valid_end_positions)
             span_loss = (start_loss + end_loss) / 2
 
             # For answerable classification
-            answerable_loss = nn.BCEWithLogitsLoss()(answerable_logits, is_impossible)
+            # Use a weighted loss to address the bias toward unanswerable questions
+            # This gives more weight to answerable examples (when is_impossible=0)
+            pos_weight = torch.tensor([0.3]).to(device)  # Lower weight for unanswerable examples
+            answerable_loss = nn.BCEWithLogitsLoss(pos_weight=pos_weight)(answerable_logits, is_impossible)
 
             # Combine losses with less weight on answerable classification
-            loss = span_loss + 0.5 * answerable_loss
+            loss = span_loss + 0.3 * answerable_loss  # Reduce the weight of answerable classification
 
             # Backward pass
             optimizer.zero_grad()
             loss.backward()
+
+            # Gradient clipping to prevent exploding gradients
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+
             optimizer.step()
+            scheduler.step()
 
             total_train_loss += loss.item()
             train_steps += 1
@@ -503,15 +565,22 @@ def main():
                 # Forward pass
                 start_logits, end_logits, answerable_logits = model(
                     input_ids=input_ids,
-                    attention_mask=attention_mask
+                    attention_mask=attention_mask,
+                    token_type_ids=token_type_ids
                 )
 
                 # Calculate loss
-                start_loss = nn.CrossEntropyLoss()(start_logits, start_positions)
-                end_loss = nn.CrossEntropyLoss()(end_logits, end_positions)
+                # Ensure all positions are valid (non-negative)
+                valid_start_positions = torch.clamp(start_positions, min=0, max=start_logits.size(1)-1)
+                valid_end_positions = torch.clamp(end_positions, min=0, max=end_logits.size(1)-1)
+
+                start_loss = nn.CrossEntropyLoss()(start_logits, valid_start_positions)
+                end_loss = nn.CrossEntropyLoss()(end_logits, valid_end_positions)
                 span_loss = (start_loss + end_loss) / 2
-                answerable_loss = nn.BCEWithLogitsLoss()(answerable_logits, is_impossible)
-                loss = span_loss + 0.5 * answerable_loss
+                # Use the same weighted loss as in training
+                pos_weight = torch.tensor([0.3]).to(device)
+                answerable_loss = nn.BCEWithLogitsLoss(pos_weight=pos_weight)(answerable_logits, is_impossible)
+                loss = span_loss + 0.3 * answerable_loss
 
                 total_val_loss += loss.item()
                 val_steps += 1
@@ -519,7 +588,8 @@ def main():
                 # Get predictions
                 start_idx = torch.argmax(start_logits, dim=1)
                 end_idx = torch.argmax(end_logits, dim=1)
-                answerable_pred = (torch.sigmoid(answerable_logits) >= 0.5).long()
+                # Use the same higher threshold as in prediction
+                answerable_pred = (torch.sigmoid(answerable_logits) >= 0.8).long()
 
                 # Store predictions and labels for metrics calculation
                 for i, example_id in enumerate(example_ids):
@@ -535,10 +605,10 @@ def main():
                     }
 
         # Calculate metrics
-        exact_match, f1 = calculate_metrics(all_predictions, all_labels)
+        metrics = calculate_metrics(all_predictions, all_labels)
         avg_val_loss = total_val_loss / val_steps
 
-        print(f"Epoch {epoch+1}/{num_epochs}, Val Loss: {avg_val_loss:.4f}, EM: {exact_match:.4f}, F1: {f1:.4f}")
+        print(f"Epoch {epoch+1}/{num_epochs}, Val Loss: {avg_val_loss:.4f}, EM: {metrics['exact_match']:.4f}, F1: {metrics['f1']:.4f}, Answerable Acc: {metrics['answerable_accuracy']:.4f}")
 
         # Save model if validation loss improves
         if avg_val_loss < best_val_loss:
