@@ -583,7 +583,7 @@ def main():
                 loss = span_loss + 0.3 * answerable_loss
 
                 total_val_loss += loss.item()
-                val_steps += 1
+                val_steps += 1  
 
                 # Get predictions
                 start_idx = torch.argmax(start_logits, dim=1)
