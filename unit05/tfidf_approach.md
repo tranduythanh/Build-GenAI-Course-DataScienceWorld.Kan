@@ -302,3 +302,12 @@ ta nhanh chóng có cái nhìn tổng quan về cảm xúc của người dùng 
 Đồng thời, ở tốc độ cực nhanh thế này, ta có thể phát hiện ra các đánh giá tiêu cực
 để nhanh chóng kích hoạt các phản ứng khác từ khía người quản lý/nhân viên trong
 thời gian thực (real-time).
+
+Mã nguồn phân tích tổng quan dữ liệu amazonreviews:
+[Explore Dataset](./explore_amazon.py)
+
+Mã nguồn thực hiện huấn luyện mô hình phân loại cảm xúc:
+[Sentiment Analysis](./sentiment_analysis.py)
+
+Mô hình huẩn luyện được lưu tại:
+[Model](./models)
