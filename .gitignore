@@ -9,3 +9,6 @@
 unit04/dev-v2.0.json
 unit04/ner_adjusted.csv
 unit04/train-v2.0.json
+unit06/ner-bert-conll03/checkpoint-1756
+unit06/ner-bert-conll03
+unit06/result.zip
