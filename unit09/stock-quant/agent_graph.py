@@ -291,26 +291,37 @@ def process_message(workflow, state, message: str):
     logger.debug(f"[{request_id}] Initial state structure: {json.dumps({k: str(type(v)) for k, v in state.items()})}")
     logger.debug(f"[{request_id}] Initial messages length: {len(state['messages'])}")
     
-    # Run the workflow
-    logger.info(f"[{request_id}] Invoking workflow")
+    # Run the workflow with streaming
+    logger.info(f"[{request_id}] Starting workflow stream")
     try:
-        result = workflow.invoke(state)
+        full_response = ""
+        for chunk in workflow.stream(
+            state,
+            {"recursion_limit": 20, "configurable": {"debug": True}}
+        ):
+            logger.debug(f"[{request_id}] Received chunk: {chunk}")
+            
+            if isinstance(chunk, dict):
+                # Handle nested message structures
+                messages = None
+                for key, value in chunk.items():
+                    if isinstance(value, dict) and "messages" in value:
+                        messages = value["messages"]
+                        break
+                
+                if messages:
+                    last_message = messages[-1]
+                    if hasattr(last_message, "content"):
+                        full_response += last_message.content
+                        logger.debug(f"[{request_id}] Updated full response: {full_response}")
         
-        # Debug result structure
-        if isinstance(result, dict):
-            logger.debug(f"[{request_id}] Result keys: {list(result.keys())}")
-            logger.debug(f"[{request_id}] Result structure: {json.dumps({k: str(type(v)) for k, v in result.items()})}")
-            if "messages" in result:
-                logger.debug(f"[{request_id}] Result messages length: {len(result['messages'])}")
-                for i, msg in enumerate(result["messages"]):
-                    logger.debug(f"[{request_id}] Message {i}: {msg.content[:100]}...")
+        logger.info(f"[{request_id}] Workflow completed")
+        logger.debug(f"[{request_id}] Final full response: {full_response}")
         
-        if isinstance(result, dict) and "messages" in result and result["messages"]:
-            response = result["messages"][-1].content
-            logger.info(f"[{request_id}] Workflow response: %s", response[:100] + "..." if len(response) > 100 else response)
-            return response
+        if full_response:
+            return full_response
         else:
-            error_msg = "Invalid result or no response message"
+            error_msg = "No response generated from workflow"
             logger.error(f"[{request_id}] {error_msg}")
             return f"Error: {error_msg}"
     except Exception as e:
