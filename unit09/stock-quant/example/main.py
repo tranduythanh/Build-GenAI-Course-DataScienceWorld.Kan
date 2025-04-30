@@ -13,6 +13,7 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_openai import ChatOpenAI
 from langgraph.graph import MessagesState, END, StateGraph, START
 from langgraph.types import Command
+from config import LLM_MODEL
 
 # Set up environment variables
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
@@ -64,7 +65,7 @@ def create_agent_prompt(agent_type: str) -> ChatPromptTemplate:
 
 
 # Set up the LLM
-llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0)
+llm = ChatOpenAI(model=LLM_MODEL, temperature=0)
 
 
 # Create the ReAct-style agent functionality without using create_react_agent
