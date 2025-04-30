@@ -16,7 +16,7 @@ class StockPriceTool(BaseTool):
     def _run(self, symbol: str, start_date: Optional[str] = None, end_date: Optional[str] = None) -> pd.DataFrame:
         try:
             collector = StockDataCollector()
-            return collector.get_stock_price(symbol, start_date, end_date)
+            return collector.fetch_stock_data(symbol, start_date, end_date)
         except Exception as e:
             logger.error(f"Error getting stock price: {str(e)}")
             raise
