@@ -23,6 +23,7 @@ logging.getLogger("langchain_core").setLevel(logging.DEBUG)
 logging.getLogger("langchain.agents").setLevel(logging.DEBUG)
 logging.getLogger("langchain.chains").setLevel(logging.DEBUG)
 logging.getLogger("langchain.tools").setLevel(logging.DEBUG)
+logging.getLogger("agent_graph").setLevel(logging.DEBUG)
 
 # Load environment variables
 load_dotenv()
@@ -81,6 +82,7 @@ if prompt := st.chat_input("Enter your query (e.g., 'Show me the stock price of 
         with st.chat_message("assistant"):
             response_placeholder = st.empty()
             full_response = ""
+            collected_messages = []  # Store all message contents
 
             # Add a status message
             status_placeholder = st.empty()
@@ -118,18 +120,27 @@ if prompt := st.chat_input("Enter your query (e.g., 'Show me the stock price of 
                             
                             if hasattr(last_message, "content"):
                                 logger.debug(f"Message content: {last_message.content}")
-                                full_response += last_message.content
-                                response_placeholder.markdown(full_response)
-                                logger.debug(f"Updated full response: {full_response}")
-
-                                # Update status
-                                status_placeholder.success("Processing complete!")
+                                # Collect the message content
+                                collected_messages.append(last_message.content)
                             else:
                                 logger.warning(f"Message has no content attribute: {last_message}")
                         else:
                             logger.warning(f"No messages found in chunk: {chunk}")
                     else:
                         logger.warning(f"Unexpected chunk type: {type(chunk)}")
+
+                # After collecting all messages, process and display the final response
+                if collected_messages:
+                    # Get the last unique message content
+                    full_response = collected_messages[-1]
+                    response_placeholder.markdown(full_response)
+                    status_placeholder.success("Processing complete!")
+                else:
+                    logger.warning("No messages collected from workflow")
+                    status_placeholder.warning("No response was generated. Please try again.")
+                    full_response = "I'm sorry, I couldn't process your request. Please try again with a different query."
+                    response_placeholder.markdown(full_response)
+
             except Exception as stream_error:
                 logger.error(f"Error during streaming: {str(stream_error)}", exc_info=True)
                 status_placeholder.error(f"Stream error: {str(stream_error)}")
@@ -137,12 +148,6 @@ if prompt := st.chat_input("Enter your query (e.g., 'Show me the stock price of 
 
             logger.info(f"Workflow completed with {chunk_count} chunks")
             logger.debug(f"Final full response: {full_response}")
-
-            if not full_response:
-                logger.warning("No response generated from workflow")
-                status_placeholder.warning("No response was generated. Please try again.")
-                full_response = "I'm sorry, I couldn't process your request. Please try again with a different query."
-                response_placeholder.markdown(full_response)
 
             # Add assistant response to chat history
             st.session_state.messages.append({"role": "assistant", "content": full_response})

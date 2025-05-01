@@ -189,21 +189,10 @@ stock-quant/
 └── README.md
 ```
 
-## Setup and Installation
-
-1. Clone the repository:
-```bash
-git clone <repository-url>
-cd stock-quant
-```
-
-2. Create and activate a virtual environment:
-```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
-
-3. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
+## Example:
+- show me the stock price of VNM for the last 10 days
+- show me the technical analysis of VNM
+- show me the financial report of VNM for the last 10 days
+- show me the company info of VNM
+- show me the market index of VN30
+- show me the stock list of VN30

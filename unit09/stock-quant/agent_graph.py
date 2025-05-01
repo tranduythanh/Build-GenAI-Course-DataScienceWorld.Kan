@@ -1,7 +1,5 @@
-from typing import Dict, TypedDict, Annotated, Sequence, List, Literal, Union
-from langgraph.graph import Graph, StateGraph, END, START, MessagesState
-from langgraph.types import Command
-from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
+from langgraph.graph import StateGraph, END, START
+from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
@@ -11,17 +9,9 @@ import logging
 import sys
 import uuid
 import json
-import langgraph
-
+from datetime import datetime
+from planner_node import create_planner_node
 from python_agent_node import create_python_agent_node
-from tools import (
-    StockPriceTool,
-    TechnicalIndicatorTool,
-    FinancialReportTool,
-    CompanyInfoTool,
-    MarketIndexTool,
-    StockListTool
-)
 from agent_types import AgentState, get_next_node
 from config import LLM_MODEL
 
@@ -154,9 +144,10 @@ def create_step_back_node():
         try:
             # Debug state structure
             logger.debug("Step Back - State structure: %s", json.dumps({k: str(type(v)) for k, v in state.items()}))
+            logger.info("Step Back - Entering step_back_node function")
             
             last_message = state["messages"][-1].content
-            logger.info("Step-back node processing message: %s", last_message[:100] + "...")
+            logger.info("Step-back node processing message: %s", last_message)
             
             # Apply step-back technique
             step_back_prompt = f"""
@@ -165,19 +156,23 @@ def create_step_back_node():
             
             Consider:
             1. What specific stock or stocks are being analyzed?
-            2. What time period is relevant?
+            2. What time period is relevant (YYYY-MM-DD)?
             3. What technical indicators or metrics are needed?
             4. What comparisons or relationships are being asked for?
+            5. The current time is {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}.
             
             Then, rephrase the question to be more precise and clear for stock market analysis.
             Return only the rephrased question, nothing else.
             """
             
+            logger.info("Step Back - Sending prompt to LLM")
             improved_question = llm.invoke(step_back_prompt).content
-            logger.info("Improved question: %s", improved_question[:100] + "...")
+            logger.info("Step Back - Received response from LLM")
+            logger.info("Improved question: %s", improved_question)
             
             # Replace the message with improved version
             state["messages"][-1] = HumanMessage(content=improved_question)
+            logger.info("Step Back - Updated state with improved question")
             
             return state
         except Exception as e:
@@ -246,30 +241,42 @@ def create_workflow():
     logger.info("Creating agent workflow")
     
     # Create nodes
+    logger.info("Creating translator node")
     translator_node = create_translator_node()
+    logger.info("Creating step-back node")
     step_back_node = create_step_back_node()
+    logger.info("Creating planner node")
+    planner_node = create_planner_node()
+    logger.info("Creating python agent node")
     python_agent_node = create_python_agent_node()
+    logger.info("Creating response translator node")
     response_translator_node = create_response_translator_node()
     
     # Create workflow
     workflow = StateGraph(AgentState)
     
     # Add nodes
+    logger.info("Adding nodes to workflow")
     workflow.add_node("translator", translator_node)
     workflow.add_node("step_back", step_back_node)
+    workflow.add_node("planner", planner_node)
     workflow.add_node("python_agent", python_agent_node)
     workflow.add_node("response_translator", response_translator_node)
     
     # Add edges
+    logger.info("Adding edges to workflow")
     workflow.add_edge("translator", "step_back")
-    workflow.add_edge("step_back", "python_agent")
+    workflow.add_edge("step_back", "planner")
+    workflow.add_edge("planner", "python_agent")
     workflow.add_edge("python_agent", "response_translator")
     workflow.add_edge("response_translator", END)
     
     # Set entry point
+    logger.info("Setting entry point to translator")
     workflow.set_entry_point("translator")
     
     # Compile workflow
+    logger.info("Compiling workflow")
     return workflow.compile()
 
 def process_message(workflow, state, message: str):

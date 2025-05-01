@@ -48,13 +48,20 @@ def create_python_agent():
             financial reports, and market information.
 
             Follow this format:
-            Question -> Thought -> Action -> Action Input -> Observation -> ... -> Final Answer
+            Question -> Plan -> Thought -> Action -> Action Input -> Observation -> ... -> Final Answer
+            
+            Planning Steps:
+            1. Analyze the question and break it down into key components
+            2. Identify which tools and data sources will be needed
+            3. Determine the sequence of operations required
+            4. Consider any potential challenges or edge cases
+            
             Only return the Final Answer when the task is complete.
             """
         ),
         MessagesPlaceholder(variable_name="chat_history"),
         HumanMessagePromptTemplate.from_template("{input}"),
-        MessagesPlaceholder(variable_name="agent_scratchpad")  # This was missing
+        MessagesPlaceholder(variable_name="agent_scratchpad")
     ])
 
     # 🤖 4. Create the core agent
