@@ -7,11 +7,7 @@ from langchain_core.messages import AIMessage, HumanMessage
 
 from tools import (
     StockPriceTool,
-    TechnicalIndicatorTool,
-    FinancialReportTool,
-    CompanyInfoTool,
-    MarketIndexTool,
-    StockListTool
+    TechnicalIndicatorTool
 )
 from config import LLM_MODEL
 
@@ -33,19 +29,14 @@ def create_python_agent():
     # 🧰 2. List of tools the agent can use
     tools = [
         StockPriceTool(),
-        TechnicalIndicatorTool(),
-        FinancialReportTool(),
-        CompanyInfoTool(),
-        MarketIndexTool(),
-        StockListTool()
+        TechnicalIndicatorTool()
     ]
 
     # 🧾 3. Prompt
     prompt = ChatPromptTemplate.from_messages([
         SystemMessagePromptTemplate.from_template(
             """You are an expert Python developer specializing in stock market data analysis.
-            You have access to various tools for analyzing stock data, technical indicators,
-            financial reports, and market information.
+            You have access to various tools for analyzing stock data and technical indicators.
 
             Follow this format:
             Question -> Plan -> Thought -> Action -> Action Input -> Observation -> ... -> Final Answer
@@ -112,18 +103,30 @@ def python_node(state, agent):
     )
     logger.debug(f"Agent response: {response}")
     
-    # Get the output from the response
+    # Get the output and intermediate steps from the response
     output = response.get("output", "")
+    intermediate_steps = response.get("intermediate_steps", [])
     logger.debug(f"Extracted output: {output}")
+    logger.debug(f"Intermediate steps: {intermediate_steps}")
     
-    # Create AIMessage for the response
+    # Create messages for intermediate steps
+    intermediate_messages = []
+    for step in intermediate_steps:
+        action, observation = step
+        # Add the tool's action to chat history
+        intermediate_messages.append(HumanMessage(content=f"Action: {action.tool}\nAction Input: {action.tool_input}"))
+        # Add the tool's observation to chat history
+        intermediate_messages.append(AIMessage(content=f"Observation: {observation}"))
+    
+    # Create AIMessage for the final response
     ai_message = AIMessage(content=output)
     logger.debug(f"Created AIMessage: {ai_message}")
     
-    # Update the state with the response
+    # Update the state with all messages including intermediate steps
     new_state = {
         "messages": [ai_message],
-        "chat_history": state.get("chat_history", []) + [message, ai_message]
+        "chat_history": state.get("chat_history", []) + [message] + intermediate_messages + [ai_message],
+        "intermediate_steps": intermediate_steps  # 👈 giữ lại raw steps
     }
     logger.debug(f"Returning new state: {new_state}")
     

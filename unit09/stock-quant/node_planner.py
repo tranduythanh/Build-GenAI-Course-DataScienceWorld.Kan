@@ -16,14 +16,17 @@ prompt = ChatPromptTemplate.from_messages([
         2. Plan the analysis steps
         3. Identify required technical indicators
         4. Determine the appropriate time period
+        5. Specify what numerical data needs to be collected
         
         Return your analysis in valid JSON format with the following structure:
         - {{ "symbol": string }}
         - {{ "date_range": ["YYYY-MM-DD", "YYYY-MM-DD"] }}
         - {{ "indicators": list of strings }}
         - {{ "steps": list of strings }}
+        - {{ "required_data": list of strings describing numerical data needed }}
         
         Ensure all dates are in "YYYY-MM-DD" format.
+        Ensure all indicators and data points are quantifiable with specific numerical values.
         """
     ),
     HumanMessagePromptTemplate.from_template("{input}")

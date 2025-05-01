@@ -1,5 +1,5 @@
 import streamlit as st
-from agent_graph import create_workflow
+from agent_graph import create_workflow, process_message
 from langchain_core.messages import HumanMessage, AIMessage
 import os
 import logging
@@ -45,8 +45,6 @@ st.markdown("""
 This app helps you analyze stocks and market data. You can:
 - View stock prices
 - Calculate technical indicators
-- Get company information
-- Analyze market index performance
 """)
 
 # Initialize chat history in session state
@@ -65,89 +63,28 @@ if prompt := st.chat_input("Enter your query (e.g., 'Show me the stock price of 
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # Process query using workflow.stream
+    # Process query using workflow
     try:
-        # Create initial state
-        initial_state = {
-            "messages": [HumanMessage(content=prompt)],
-            "next": None,
-            "chat_history": []  # Initialize chat history as empty list
-        }
-
-        # Log the initial state
-        logger.debug(f"Initial state: {initial_state}")
         logger.info(f"Starting workflow with prompt: {prompt[:100]}...")
 
         # Display assistant response
         with st.chat_message("assistant"):
             response_placeholder = st.empty()
-            full_response = ""
-            collected_messages = []  # Store all message contents
-
-            # Add a status message
             status_placeholder = st.empty()
             status_placeholder.info("Processing your request...")
 
-            # Stream the response with detailed logging
-            logger.info("Starting workflow stream")
-            chunk_count = 0
-
             try:
-                for chunk in workflow.stream(
-                    initial_state,
-                    {"recursion_limit": 20, "configurable": {"debug": True}}
-                ):
-                    chunk_count += 1
-                    logger.debug(f"Received chunk {chunk_count}: {chunk}")
-                    logger.debug(f"Chunk type: {type(chunk)}")
-
-                    if isinstance(chunk, dict):
-                        logger.debug(f"Chunk keys: {list(chunk.keys())}")
-                        
-                        # Handle nested message structures
-                        messages = None
-                        for key, value in chunk.items():
-                            if isinstance(value, dict) and "messages" in value:
-                                messages = value["messages"]
-                                logger.debug(f"Found messages in {key}: {messages}")
-                                break
-                        
-                        if messages:
-                            logger.debug(f"Processing messages: {messages}")
-                            last_message = messages[-1]
-                            logger.debug(f"Last message: {last_message}")
-                            logger.debug(f"Last message type: {type(last_message)}")
-                            
-                            if hasattr(last_message, "content"):
-                                logger.debug(f"Message content: {last_message.content}")
-                                # Collect the message content
-                                collected_messages.append(last_message.content)
-                            else:
-                                logger.warning(f"Message has no content attribute: {last_message}")
-                        else:
-                            logger.warning(f"No messages found in chunk: {chunk}")
-                    else:
-                        logger.warning(f"Unexpected chunk type: {type(chunk)}")
-
-                # After collecting all messages, process and display the final response
-                if collected_messages:
-                    # Get the last unique message content
-                    full_response = collected_messages[-1]
-                    response_placeholder.markdown(full_response)
-                    status_placeholder.success("Processing complete!")
-                else:
-                    logger.warning("No messages collected from workflow")
-                    status_placeholder.warning("No response was generated. Please try again.")
-                    full_response = "I'm sorry, I couldn't process your request. Please try again with a different query."
-                    response_placeholder.markdown(full_response)
+                # Get the formatted response
+                full_response = process_message(workflow, prompt)
+                
+                # Display the response with proper formatting
+                response_placeholder.markdown(full_response)
+                status_placeholder.success("Processing complete!")
 
             except Exception as stream_error:
-                logger.error(f"Error during streaming: {str(stream_error)}", exc_info=True)
-                status_placeholder.error(f"Stream error: {str(stream_error)}")
+                logger.error(f"Error during processing: {str(stream_error)}", exc_info=True)
+                status_placeholder.error(f"Error: {str(stream_error)}")
                 raise stream_error
-
-            logger.info(f"Workflow completed with {chunk_count} chunks")
-            logger.debug(f"Final full response: {full_response}")
 
             # Add assistant response to chat history
             st.session_state.messages.append({"role": "assistant", "content": full_response})

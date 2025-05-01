@@ -1,7 +1,7 @@
 import pytest
 from langchain_core.messages import HumanMessage, AIMessage
 from langgraph.types import Command
-from python_agent_node import python_node, create_python_agent
+from node_python_agent import python_node, create_python_agent
 from agent_types import AgentState
 
 

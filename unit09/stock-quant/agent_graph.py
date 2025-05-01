@@ -1,18 +1,17 @@
-from langgraph.graph import StateGraph, END, START
+from langgraph.graph import StateGraph, END
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 
-import os
 import logging
 import sys
-import uuid
 import json
-from datetime import datetime
-from planner_node import create_planner_node
-from python_agent_node import create_python_agent_node
-from agent_types import AgentState, get_next_node
+from node_planner import create_planner_node
+from node_python_agent import create_python_agent_node
+from node_step_back import create_step_back_node
+from node_summary import create_summary_node
+from agent_types import AgentState
 from config import LLM_MODEL
 
 # Configure logging with more verbosity
@@ -85,144 +84,6 @@ def create_agent_executor(llm, tools, agent_type: str):
     
     return run_agent
 
-def create_translator_node():
-    """Create a translator node for language detection and translation"""
-    logger.info("Initializing translator node")
-    llm = create_llm()
-    
-    def translator_node(state):
-        """Detect language and translate if needed"""
-        try:
-            # Debug state structure
-            logger.debug("Translator - State structure: %s", json.dumps({k: str(type(v)) for k, v in state.items()}))
-            
-            last_message = state["messages"][-1].content
-            logger.info("Translator node processing message: %s", last_message[:100] + "...")
-            
-            # Detect language
-            detect_prompt = f"""
-            Determine the language of the following text and respond with ONLY the language code (e.g., 'en' for English, 'vi' for Vietnamese):
-            
-            Text: {last_message}
-            """
-            
-            language_code = llm.invoke(detect_prompt).content.strip().lower()
-            logger.info("Detected language: %s", language_code)
-            
-            # If not English, translate to English
-            if language_code != "en":
-                translate_prompt = f"""
-                Translate the following text to English. 
-                Only return the English translation, nothing else.
-                
-                Text: {last_message}
-                """
-                
-                translated_text = llm.invoke(translate_prompt).content
-                logger.info("Translated text: %s", translated_text[:100] + "...")
-                
-                # Replace the message with translated version
-                state["messages"][-1] = HumanMessage(content=translated_text)
-                
-                # Store original language for translating back later
-                state["original_language"] = language_code
-            
-            return state
-        except Exception as e:
-            logger.error("Error in translator node: %s", str(e), exc_info=True)
-            return state
-    
-    return translator_node
-
-def create_step_back_node():
-    """Create a step-back node for improving question quality"""
-    logger.info("Initializing step-back node")
-    llm = create_llm()
-    
-    def step_back_node(state):
-        """Apply step-back technique to analyze and improve the question"""
-        try:
-            # Debug state structure
-            logger.debug("Step Back - State structure: %s", json.dumps({k: str(type(v)) for k, v in state.items()}))
-            logger.info("Step Back - Entering step_back_node function")
-            
-            last_message = state["messages"][-1].content
-            logger.info("Step-back node processing message: %s", last_message)
-            
-            # Apply step-back technique
-            step_back_prompt = f"""
-            Given the following question about stock market analysis, break it down into fundamental concepts and requirements.
-            Question: {last_message}
-            
-            Consider:
-            1. What specific stock or stocks are being analyzed?
-            2. What time period is relevant (YYYY-MM-DD)?
-            3. What technical indicators or metrics are needed?
-            4. What comparisons or relationships are being asked for?
-            5. The current time is {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}.
-            
-            Then, rephrase the question to be more precise and clear for stock market analysis.
-            Return only the rephrased question, nothing else.
-            """
-            
-            logger.info("Step Back - Sending prompt to LLM")
-            improved_question = llm.invoke(step_back_prompt).content
-            logger.info("Step Back - Received response from LLM")
-            logger.info("Improved question: %s", improved_question)
-            
-            # Replace the message with improved version
-            state["messages"][-1] = HumanMessage(content=improved_question)
-            logger.info("Step Back - Updated state with improved question")
-            
-            return state
-        except Exception as e:
-            logger.error("Error in step-back node: %s", str(e), exc_info=True)
-            return state
-    
-    return step_back_node
-
-def create_response_translator_node():
-    """Create a response translator node to translate results back to original language"""
-    logger.info("Initializing response translator node")
-    llm = create_llm()
-    
-    def response_translator_node(state):
-        """Translate response back to original language if needed"""
-        try:
-            # Debug state structure
-            logger.debug("Response Translator - State structure: %s", json.dumps({k: str(type(v)) for k, v in state.items()}))
-            
-            # Check if we need to translate the response
-            if "original_language" in state and state["original_language"] != "en":
-                original_language = state["original_language"]
-                response = state["messages"][-1].content
-                logger.info("Translating response back to %s: %s", original_language, response[:100] + "...")
-                
-                # Translate response back to original language
-                translate_prompt = f"""
-                Translate the following English answer to the language with code '{original_language}'. 
-                DO NOT translate any stock symbols, technical terms, or numbers.
-                Keep all numbers, dates, and technical terms in their original form.
-                Only return the translated response, nothing else.
-                
-                Answer: {response}
-                """
-                
-                translated_response = llm.invoke(translate_prompt).content
-                logger.info("Translated response: %s", translated_response[:100] + "...")
-                
-                # Replace the message with translated version
-                state["messages"][-1] = AIMessage(content=translated_response)
-                
-                # Remove the original language from state
-                del state["original_language"]
-            
-            return state
-        except Exception as e:
-            logger.error("Error in response translator node: %s", str(e), exc_info=True)
-            return state
-    
-    return response_translator_node
 
 def router(state: AgentState) -> str:
     """Route to the Python agent"""
@@ -241,96 +102,94 @@ def create_workflow():
     logger.info("Creating agent workflow")
     
     # Create nodes
-    logger.info("Creating translator node")
-    translator_node = create_translator_node()
     logger.info("Creating step-back node")
     step_back_node = create_step_back_node()
     logger.info("Creating planner node")
     planner_node = create_planner_node()
     logger.info("Creating python agent node")
     python_agent_node = create_python_agent_node()
-    logger.info("Creating response translator node")
-    response_translator_node = create_response_translator_node()
+    logger.info("Creating summary node")
+    summary_node = create_summary_node()
     
     # Create workflow
     workflow = StateGraph(AgentState)
     
     # Add nodes
     logger.info("Adding nodes to workflow")
-    workflow.add_node("translator", translator_node)
     workflow.add_node("step_back", step_back_node)
     workflow.add_node("planner", planner_node)
     workflow.add_node("python_agent", python_agent_node)
-    workflow.add_node("response_translator", response_translator_node)
+    workflow.add_node("summary", summary_node)
     
     # Add edges
     logger.info("Adding edges to workflow")
-    workflow.add_edge("translator", "step_back")
     workflow.add_edge("step_back", "planner")
     workflow.add_edge("planner", "python_agent")
-    workflow.add_edge("python_agent", "response_translator")
-    workflow.add_edge("response_translator", END)
+    workflow.add_edge("python_agent", "summary")
+    workflow.add_edge("summary", END)
     
     # Set entry point
-    logger.info("Setting entry point to translator")
-    workflow.set_entry_point("translator")
+    logger.info("Setting entry point to step_back")
+    workflow.set_entry_point("step_back")
     
     # Compile workflow
     logger.info("Compiling workflow")
     return workflow.compile()
 
-def process_message(workflow, state, message: str):
-    """Process a message through the workflow"""
-    logger.info("Processing message: %s", message[:100] + "..." if len(message) > 100 else message)
+def process_message(workflow, message: str):
+    """Process a message through the workflow and return the response"""
+    logger.info("Processing message: %s", message)
     
-    # Create a unique ID for this request for logging
-    request_id = str(uuid.uuid4())[:8]
-    logger.info(f"Request ID: {request_id}")
-    
-    # Initialize state correctly
-    state = {
+    # Create initial state
+    initial_state = {
         "messages": [HumanMessage(content=message)],
-        "next": None  # Let LangGraph determine the next node
+        "next": None,
+        "chat_history": []
     }
     
-    # Debug initial state structure
-    logger.debug(f"[{request_id}] Initial state keys: {list(state.keys())}")
-    logger.debug(f"[{request_id}] Initial state structure: {json.dumps({k: str(type(v)) for k, v in state.items()})}")
-    logger.debug(f"[{request_id}] Initial messages length: {len(state['messages'])}")
+    # Format the response to include intermediate steps
+    formatted_response = []
+    final_answer = None
+    intermediate_steps = []
     
     # Run the workflow with streaming
-    logger.info(f"[{request_id}] Starting workflow stream")
-    try:
-        full_response = ""
-        for chunk in workflow.stream(
-            state,
-            {"recursion_limit": 20, "configurable": {"debug": True}}
-        ):
-            logger.debug(f"[{request_id}] Received chunk: {chunk}")
-            
-            if isinstance(chunk, dict):
-                # Handle nested message structures
-                messages = None
-                for key, value in chunk.items():
-                    if isinstance(value, dict) and "messages" in value:
-                        messages = value["messages"]
-                        break
-                
-                if messages:
-                    last_message = messages[-1]
-                    if hasattr(last_message, "content"):
-                        full_response += last_message.content
-                        logger.debug(f"[{request_id}] Updated full response: {full_response}")
+    for chunk in workflow.stream(
+        initial_state,
+        {"recursion_limit": 20, "configurable": {"debug": True}}
+    ):
+        logger.debug(f"Received chunk: {chunk}")
         
-        logger.info(f"[{request_id}] Workflow completed")
-        logger.debug(f"[{request_id}] Final full response: {full_response}")
-        
-        if full_response:
-            return full_response
-        else:
-            error_msg = "No response generated from workflow"
-            logger.error(f"[{request_id}] {error_msg}")
-            return f"Error: {error_msg}"
-    except Exception as e:
-        logger.error(f"[{request_id}] Error during workflow execution: {str(e)}", exc_info=True)
-        return f"Error: {str(e)}" 
+        if isinstance(chunk, dict):
+            # Handle nested message structures
+            for key, value in chunk.items():
+                if isinstance(value, dict) and "messages" in value:
+                    messages = value["messages"]
+                    for msg in messages:
+                        if hasattr(msg, "content"):
+                            content = msg.content
+                            # Check if this is a final answer
+                            if isinstance(msg, AIMessage) and ("FINAL ANSWER" in content or "Final Answer ->" in content):
+                                final_answer = content
+                            # Check if this is an intermediate step
+                            elif isinstance(msg, HumanMessage) and "Action:" in content:
+                                intermediate_steps.append(f"\n### {content}")
+                            elif isinstance(msg, AIMessage) and "Observation:" in content:
+                                intermediate_steps.append(f"{content}")
+    
+    print(f'Final answer: {final_answer}')
+    print(f'Intermediate steps: {intermediate_steps}')
+    
+    # Compose the final response
+    if final_answer:
+        formatted_response.append("## Final Answer")
+        formatted_response.append(final_answer)
+    
+    if intermediate_steps:
+        formatted_response.append("\n## Analysis Process")
+        formatted_response.extend(intermediate_steps)
+    
+    # If no response was generated, return a default message
+    if not formatted_response:
+        return "I'm sorry, I couldn't process your request. Please try again with a different query."
+    
+    return "\n".join(formatted_response) 

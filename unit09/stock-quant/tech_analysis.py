@@ -2,16 +2,13 @@ import pandas as pd
 import pandas_ta as ta
 import numpy as np
 from typing import Dict, Optional, Union
+import logging
+
+logger = logging.getLogger(__name__)
 
 class TechAna:
     """Technical Analysis Tool for Stock Market Data"""
     
-    def __init__(self):
-        """
-        Initialize the Technical Analysis tool
-        """
-        pass
-        
     def analyze(self, df: pd.DataFrame, indicator: str, params: Optional[Dict] = None) -> Union[str, pd.DataFrame]:
         """
         Perform technical analysis on provided stock data
@@ -24,7 +21,7 @@ class TechAna:
         Returns:
             Union[str, pd.DataFrame]: Analysis results or error message
         """
-        print(f"Analyzing {indicator} for DataFrame with shape {df.shape}")
+        logger.debug(f"Analyzing {indicator} for DataFrame with shape {df.shape}")
         try:
             if df is None or df.empty:
                 return "Empty DataFrame provided"
@@ -43,7 +40,7 @@ class TechAna:
             close_prices = df['close'].astype(np.float64).tolist()
             close_prices = pd.Series(close_prices, index=df.index)
 
-            print(f"Close prices: {close_prices}")
+            logger.debug(f"Close prices: {close_prices}")
             
             # Handle each indicator type
             if indicator == 'rsi':
@@ -51,7 +48,7 @@ class TechAna:
                 if params is None:
                     params = {'length': 14}
                 result = ta.rsi(close_prices, **params)
-                print(f"RSI result: {result}")
+                logger.debug(f"RSI result: {result}")
             elif indicator == 'macd':
                 # Default MACD parameters if none provided
                 if params is None:
@@ -84,4 +81,5 @@ class TechAna:
             
             return result
         except Exception as e:
+            logger.error(f"Error in technical analysis for {indicator}: {str(e)}")
             return f"Error in technical analysis for {indicator}: {str(e)}"
