@@ -33,70 +33,6 @@ def create_llm():
         verbose=True
     )
 
-def create_agent_prompt(agent_type: str) -> ChatPromptTemplate:
-    system_message = (
-        "You are a helpful AI assistant specialized in stock market analysis. "
-        "Use the provided tools to analyze stock data and provide insights. "
-        "Execute what you can to make progress."
-        f"\nYou can only do {agent_type}."
-        "\nIMPORTANT: You MUST include FINAL ANSWER in your response when you have completed your specific task:"
-        "\n- As Python agent: Include FINAL ANSWER after you have successfully performed the analysis"
-        "\nDo not include FINAL ANSWER until you have actually completed your specific task."
-    )
-    
-    return ChatPromptTemplate.from_messages([
-        ("system", system_message),
-        MessagesPlaceholder(variable_name="messages"),
-        ("human", "{input}"),
-    ])
-
-def create_agent_executor(llm, tools, agent_type: str):
-    """Creates a ReAct style agent manually"""
-    prompt = create_agent_prompt(agent_type)
-    
-    def run_agent(state):
-        # Extract messages from state
-        messages = state.get("messages", [])
-        
-        # Format messages for the agent prompt
-        formatted_messages = []
-        for msg in messages:
-            if isinstance(msg, HumanMessage):
-                formatted_messages.append(("human", msg.content))
-            elif isinstance(msg, AIMessage):
-                formatted_messages.append(("ai", msg.content))
-            elif isinstance(msg, SystemMessage):
-                formatted_messages.append(("system", msg.content))
-        
-        # Prepare the input for the LLM
-        input_data = {
-            "messages": messages,
-            "input": f"You have access to the following tools: {[t.name for t in tools]}. " +
-                    f"Use them to respond to the user's request."
-        }
-        
-        # Get response from LLM
-        response = llm.invoke(prompt.format_prompt(**input_data).to_messages())
-        
-        return {
-            "messages": messages + [response]
-        }
-    
-    return run_agent
-
-
-def router(state: AgentState) -> str:
-    """Route to the Python agent"""
-    logger.debug("Router - State structure: %s", json.dumps({k: str(type(v)) for k, v in state.items()}))
-    logger.debug("Router - State keys: %s", list(state.keys()))
-    
-    messages = state["messages"]
-    last_message = messages[-1]
-    logger.info("Router processing message: %s", last_message.content[:100] + "..." if len(last_message.content) > 100 else last_message.content)
-    
-    # Always route to Python agent
-    return "python_agent"
-
 def create_workflow():
     """Create the agent workflow"""
     logger.info("Creating agent workflow")
@@ -159,7 +95,12 @@ def process_message(workflow, message: str):
     ):
         logger.debug(f"Received chunk: {chunk}")
         
+        # Print state in red after each agent tool execution
         if isinstance(chunk, dict):
+            print("\033[91m" + "State after agent tool execution:" + "\033[0m")
+            print("\033[91m" + json.dumps(chunk, indent=2, default=str) + "\033[0m")
+            print("\033[91m" + "="*50 + "\033[0m")
+            
             # Handle nested message structures
             for key, value in chunk.items():
                 if isinstance(value, dict) and "messages" in value:

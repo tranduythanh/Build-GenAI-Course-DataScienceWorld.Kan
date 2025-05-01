@@ -15,7 +15,7 @@ prompt = ChatPromptTemplate.from_messages([
         1. Extract key information from user requests
         2. Plan the analysis steps
         3. Identify required technical indicators
-        4. Determine the appropriate time period
+        4. Determine the appropriate time period. If not specified, use the last 365 days.
         5. Specify what numerical data needs to be collected
         
         Return your analysis in valid JSON format with the following structure:

@@ -1,115 +1,113 @@
 # Stock Quant
 
-A comprehensive toolkit for financial analysis and trading, built with Python. This application provides various tools for stock market analysis, including price data collection and technical indicators.
+Một bộ công cụ toàn diện cho phân tích tài chính và giao dịch, được xây dựng bằng Python. Ứng dụng này cung cấp nhiều công cụ khác nhau cho phân tích thị trường chứng khoán, bao gồm thu thập dữ liệu giá, các chỉ báo kỹ thuật và phân tích dựa trên AI.
 
-## Features
+## Tính năng
 
-### 1. Stock Data Collection
-- Real-time and historical stock price data using VNQuant API
-- Customizable date ranges for data retrieval
+### 1. Thu thập dữ liệu chứng khoán
+- Dữ liệu giá chứng khoán thời gian thực và lịch sử sử dụng VNQuant API
+- Phạm vi ngày tùy chỉnh để lấy dữ liệu
 
-### 2. Technical Analysis
-- Multiple technical indicators calculation using pandas-ta
-- Support for various indicators:
+### 2. Phân tích kỹ thuật
+- Tính toán nhiều chỉ báo kỹ thuật sử dụng pandas-ta
+- Hỗ trợ các chỉ báo:
   - Simple Moving Average (SMA)
   - Relative Strength Index (RSI)
   - Moving Average Convergence Divergence (MACD)
   - Bollinger Bands
-- Customizable timeframes
-- Visual representation of indicators
+- Khung thời gian tùy chỉnh
 
-### 3. AI-Powered Analysis
-- Natural language processing for queries using LangChain
-- Automated analysis and interpretation
-- Python agent for calculations and analysis
-- Multi-step workflow with question improvement
+### 3. Phân tích dựa trên AI
+- Xử lý ngôn ngữ tự nhiên cho các truy vấn sử dụng LangChain
+- Quy trình làm việc đa agent với các node chuyên biệt:
+  - Step-back Node: Cải thiện chất lượng và độ rõ ràng của câu hỏi
+  - Planner Node: Xác định phương pháp phân tích
+  - Python Agent: Xử lý tính toán và truy xuất dữ liệu
+  - Summary Node: Tổng hợp kết quả
+- Lịch sử chat tương tác cho phản hồi theo ngữ cảnh
+- Phản hồi streaming với các bước trung gian
 
-## Architecture
+## Kiến trúc
 
-The application follows a modular architecture with the following components:
+Ứng dụng tuân theo kiến trúc mô-đun với các thành phần sau:
 
-- Data Collection Layer
-- Analysis Layer
-- AI Agent Layer
-- User Interface Layer
+### 1. Lớp Agent Graph
+- Quản lý trạng thái sử dụng `AgentState`
+- Điều phối quy trình làm việc với `StateGraph`
+- Xử lý và streaming tin nhắn
 
-## System Architecture
+### 2. Lớp Node
+- Step-back Node: Cải thiện câu hỏi
+- Planner Node: Lập kế hoạch và phân tách nhiệm vụ
+- Python Agent Node: Phân tích dữ liệu và thực thi công cụ
+- Summary Node: Tổng hợp kết quả
+
+### 3. Lớp Tool
+- Stock Price Tool: Truy xuất và xử lý dữ liệu
+- Technical Analysis Tool: Tính toán chỉ báo
+- Data Collector: Tích hợp API và lưu trữ
+
+### 4. Cơ chế Lịch sử Chat
+Hệ thống duy trì lịch sử chat tinh vi với các tính năng:
+- Bảo toàn ngữ cảnh cuộc trò chuyện qua nhiều tương tác
+- Lưu trữ cả tin nhắn người dùng và phản hồi của agent
+- Theo dõi các bước trung gian và thực thi công cụ
+- Cho phép phản hồi theo ngữ cảnh
+- Sử dụng `InMemoryChatMessageHistory` để quản lý phiên (session)
+- Hỗ trợ streaming các bước trung gian và câu trả lời cuối cùng
+
+## Kiến trúc Hệ thống
 
 ```mermaid
 graph TD
-    A[User Interface] --> B[Agent Graph<br/>- State Management]
+    A[Giao diện Người dùng] --> B[Agent Graph<br/>- Quản lý State<br/>- Chat History]
     
-    %% Workflow Path
-    B --> C[Step-back Node<br/>- Question Improvement<br/>- Query Refinement]
-    C --> D[Planner Node<br/>- Task Planning]
+    %% Đường dẫn Quy trình
+    B --> C[Step-back Node<br/>- Cải thiện Câu hỏi<br/>- Tinh chỉnh Truy vấn]
+    C --> D[Planner Node<br/>- Lập kế hoạch Nhiệm vụ<br/>- Xây dựng Chiến lược]
     D --> E[Python Agent<br/>- Stock Price Tool<br/>- Technical Analysis Tool]
-    E --> F[Summary Node<br/>- Result Synthesis]
-    F --> G[Results & Visualizations]
+    E --> F[Summary Node<br/>- Tổng hợp Kết quả<br/>- Câu trả lời Cuối cùng]
+    F --> G[Kết quả & Trực quan hóa]
     G --> A
     
-    %% Data Source Connection
-    E -->|Data Source| H[VNQuant API]
+    %% Kết nối Nguồn dữ liệu
+    E -->|Nguồn dữ liệu| H[VNQuant API]
+    
+    %% Lịch sử Chat
+    B <-->|Ngữ cảnh| I[Chat History<br/>- Lưu trữ Tin nhắn<br/>- Theo dõi Ngữ cảnh]
 ```
 
-### System Flow
-
-1. **Initial Processing**:
-   - Step-back Node improves question quality and clarity
-   - Planner Node determines the analysis approach
-   - Python Agent handles all analysis and data retrieval
-
-2. **Data Retrieval Flow**:
-   - Python Agent uses VNQuant API for real-time and historical data
-   - Data is cached in memory during the session for performance
-
-3. **Tool Execution**:
-   - Python Agent tools process and analyze data:
-     - Stock Price Tool: Retrieves and processes price data
-     - Technical Analysis Tool: Calculates indicators and patterns
-
-4. **Result Generation**:
-   - Processed data is formatted for presentation
-   - Visualizations are generated for complex data
-   - Insights and recommendations are synthesized
-   - Final results are returned to the user interface
-
-5. **User Presentation**:
-   - Results are displayed in the user interface
-   - Interactive visualizations allow for data exploration
-   - User can refine queries based on initial results
-
-This architecture ensures:
-- Efficient data retrieval from VNQuant API
-- Comprehensive analysis of market data
-- User-friendly presentation of results
-- High-quality question processing
-
-## File Structure
+## Cấu trúc Tệp
 
 ```
 stock-quant/
-├── data/
-│   └── raw/
-├── src/
-│   ├── agents/
-│   │   ├── agent_graph.py
-│   │   ├── agent_types.py
-│   │   └── node_python_agent.py
-│   ├── tools/
-│   │   ├── tools.py
-│   │   ├── data_collector.py
-│   │   └── tech_analysis.py
-│   └── utils/
-│       ├── config.py
-│       └── helpers.py
-├── tests/
-├── requirements.txt
-└── README.md
+├── app.py                    # Điểm khởi đầu chính của ứng dụng
+├── agent_graph.py           # Điều phối quy trình làm việc
+├── agent_types.py           # Định nghĩa trạng thái và kiểu
+├── node_python_agent.py     # Triển khai Python agent
+├── node_planner.py          # Triển khai node lập kế hoạch
+├── node_step_back.py        # Node cải thiện câu hỏi
+├── node_summary.py          # Triển khai node tổng hợp
+├── tools.py                 # Triển khai các công cụ
+├── data_collector.py        # Tiện ích thu thập dữ liệu
+├── tech_analysis.py         # Các hàm phân tích kỹ thuật
+├── config.py                # Cài đặt cấu hình
+├── requirements.txt         # Các phụ thuộc
+└── README.md                # Tài liệu
 ```
 
-## Example Queries:
-- Show me the stock price of VNM for the last 10 days
-- Calculate the RSI for VNM over the last month
+## Ví dụ Truy vấn:
+- Show me the stock price of VNM in the last 10 days
+- Calculate the technical indicators of HAG
+- Calculate RSI for VNM in the last month
 - Show me the MACD analysis for VNM
 - What are the Bollinger Bands for VNM?
-- Get the SMA for VNM over the last 30 days
+- What is the SMA for VNM in the last 30 days?
+
+## Tính năng Lịch sử Chat
+Hệ thống lịch sử chat cung cấp:
+1. **Context preservation**: Duy trì ngữ cảnh cuộc trò chuyện qua nhiều tương tác
+2. **Intermediate steps**: Theo dõi và hiển thị quá trình suy luận
+3. **Tool execution logs**: Ghi lại tất cả các lệnh gọi công cụ và kết quả
+4. **Session management**: Xử lý nhiều phiên trò chuyện
+5. **Streaming support**: Cập nhật thời gian thực tiến trình phân tích
