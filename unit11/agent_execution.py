@@ -33,17 +33,32 @@ EXECUTION METHODOLOGY:
 5. **Quality Assurance**: Ensure results meet plan criteria
 
 AVAILABLE TOOLS:
-- get_stock_price: Lấy dữ liệu giá cổ phiếu Việt Nam
+- get_stock_price: Lấy dữ liệu giá cổ phiếu Việt Nam với AI analysis
 - calculate_technical_indicators: Phân tích kỹ thuật (SMA, RSI, MACD, Bollinger Bands)
 
+MANDATORY EXECUTION RULES:
+🔥 **ALWAYS USE TOOLS**: Bạn PHẢI sử dụng available tools để lấy dữ liệu thực
+🔥 **NO THEORETICAL RESPONSES**: KHÔNG BAO GIỜ trả lời lý thuyết mà không có dữ liệu thực
+🔥 **TOOL-DRIVEN ANALYSIS**: Mọi phân tích phải dựa trên kết quả từ tools
+🔥 **DATA REQUIREMENT**: Với mọi câu hỏi về stock, BẮT BUỘC phải gọi get_stock_price
+🔥 **TECHNICAL ANALYSIS**: Với mọi yêu cầu technical indicators, BẮT BUỘC phải gọi calculate_technical_indicators
+
 EXECUTION PRINCIPLES:
-- Follow plan sequence chính xác
+- ALWAYS call appropriate tools FIRST để lấy dữ liệu
+- Follow plan sequence chính xác với REAL DATA
 - Validate results at each step
-- Provide detailed progress feedback
-- Synthesize comprehensive final output
+- Provide detailed progress feedback based on ACTUAL RESULTS
+- Synthesize comprehensive final output from TOOL OUTPUTS
 - Handle errors gracefully với fallback strategies
 
-Focus on efficient, accurate execution theo strategic plan."""
+RESPONSE FORMAT:
+1. Determine required tools based on query/plan
+2. Execute tools with appropriate parameters 
+3. Analyze ACTUAL results from tools
+4. Provide insights based on REAL DATA
+5. Give recommendations based on CONCRETE FINDINGS
+
+Focus on efficient, accurate execution theo strategic plan với REAL DATA từ tools."""
 
         # Initialize memory for execution context
         self.memory = ChatMemoryBuffer.from_defaults(token_limit=2000)
@@ -80,14 +95,25 @@ STRATEGIC PLAN TO EXECUTE:
 USER QUERY: "{user_query}"
 EXTRACTED STEPS: {plan.get('steps', [])}
 
-Thực hiện plan này step by step:
+🔥 MANDATORY EXECUTION REQUIREMENTS:
+1. BẮT BUỘC phải sử dụng get_stock_price tool để lấy dữ liệu cổ phiếu thực
+2. BẮT BUỘC phải sử dụng calculate_technical_indicators cho MỌI câu hỏi technical analysis
+3. KHÔNG BAO GIỜ trả lời lý thuyết mà không có dữ liệu từ tools
+4. Mọi phân tích phải dựa trên kết quả THỰC từ tool execution
 
-1. Phân tích plan để identify required tools và sequence
-2. Execute tools với appropriate parameters
-3. Tại mỗi step, validate results và provide progress feedback
-4. Synthesize final comprehensive response
+⚠️ TECHNICAL ANALYSIS DETECTION:
+Keywords requiring calculate_technical_indicators: RSI, SMA, MACD, Bollinger, chỉ số kỹ thuật, technical analysis, phân tích kỹ thuật
 
-Bắt đầu execution theo plan. Use available tools systematically.
+EXECUTION STEPS:
+1. Identify symbol từ user query (VIC, FPT, VNM, HAG, MSN, VNINDEX, etc.)
+2. IMMEDIATELY call get_stock_price với symbol và date range
+3. IF query mentions technical indicators (RSI, SMA, MACD, etc.) → MANDATORY call calculate_technical_indicators
+4. For comprehensive analysis, ALSO call calculate_technical_indicators để có đầy đủ insights
+5. Analyze REAL DATA từ tool results
+6. Combine price data + technical indicators để tạo comprehensive analysis
+7. Provide detailed insights và recommendations dựa trên ACTUAL DATA
+
+🚀 BẮT ĐẦU EXECUTION - CALL ALL RELEVANT TOOLS NGAY BÂY GIỜ!
 """
         
         try:

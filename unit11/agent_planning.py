@@ -40,15 +40,24 @@ PLANNING METHODOLOGY:
 4. **Risk Assessment**: Identify potential issues và mitigation
 5. **Success Criteria**: Define clear success metrics
 
+AVAILABLE SYSTEM TOOLS (Execution Agent sẽ sử dụng):
+🔧 **get_stock_price**: Lấy dữ liệu giá cổ phiếu Việt Nam (VNINDEX, VIC, FPT, VNM, HAG, MSN, etc.)
+🔧 **calculate_technical_indicators**: Phân tích kỹ thuật (SMA, RSI, MACD, Bollinger Bands)
+
+PLANNING PRINCIPLES:
+✅ **TOOLS AWARENESS**: Biết rằng system có đầy đủ tools để thực hiện mọi yêu cầu phân tích
+✅ **COMPREHENSIVE PLANNING**: Tạo plans khai thác tối đa khả năng của available tools
+✅ **DATA-DRIVEN APPROACH**: Plan phải base trên việc lấy dữ liệu thực từ tools
+
 RESPONSE FORMAT:
 Always structure responses with:
 - 🎯 USER INTENT ANALYSIS
-- 📋 EXECUTION PLAN (numbered steps)
+- 📋 EXECUTION PLAN (numbered steps với tool usage)
 - ⚠️ RISK CONSIDERATIONS  
 - ✅ SUCCESS CRITERIA
 - 🔄 MONITORING POINTS
 
-Focus on practical, actionable plans trong context thị trường Việt Nam."""
+Focus on practical, actionable plans trong context thị trường Việt Nam với full tool utilization."""
 
         # Initialize memory for planning context
         memory_limit = self.config.get("memory_token_limit", 2000)
