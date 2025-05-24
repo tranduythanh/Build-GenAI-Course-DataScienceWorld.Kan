@@ -45,6 +45,8 @@ class StockPriceTool(BaseTool):
         Returns:
             ToolOutput with stock price data in raw_output as list of records
         """
+        tool_name: str = self.metadata.name or "get_stock_price"
+        
         try:
             # Normalize input to always be a dictionary for raw_input
             raw_input_dict: Dict[str, Any]
@@ -74,7 +76,7 @@ class StockPriceTool(BaseTool):
             else:
                 return ToolOutput(
                     content="Invalid input format",
-                    tool_name=self.metadata.name,
+                    tool_name=tool_name,
                     raw_input={"error": "Invalid input format"},
                     raw_output={"error": "Invalid input format"},
                     is_error=True
@@ -83,7 +85,7 @@ class StockPriceTool(BaseTool):
             if not self.data_collector:
                 return ToolOutput(
                     content="API key not configured",
-                    tool_name=self.metadata.name,
+                    tool_name=tool_name,
                     raw_input=raw_input_dict,
                     raw_output={"error": "API key not configured"},
                     is_error=True
@@ -92,7 +94,7 @@ class StockPriceTool(BaseTool):
             if not symbol:
                 return ToolOutput(
                     content="Missing required parameter: symbol",
-                    tool_name=self.metadata.name,
+                    tool_name=tool_name,
                     raw_input=raw_input_dict,
                     raw_output={"error": "Missing required parameter: symbol"},
                     is_error=True
@@ -121,7 +123,7 @@ class StockPriceTool(BaseTool):
             
             return ToolOutput(
                 content=f"Successfully retrieved stock data for {symbol} from {start_date} to {end_date}",
-                tool_name=self.metadata.name,
+                tool_name=tool_name,
                 raw_input=raw_input_dict,
                 raw_output=result
             )
@@ -129,7 +131,7 @@ class StockPriceTool(BaseTool):
             tool_logger.error(f"Error in get_stock_price: {str(e)}")
             return ToolOutput(
                 content=f"Error getting stock price: {str(e)}",
-                tool_name=self.metadata.name,
+                tool_name=tool_name,
                 raw_input=raw_input_dict if 'raw_input_dict' in locals() else {"error": "Failed to process input"},
                 raw_output={"error": str(e)},
                 is_error=True
