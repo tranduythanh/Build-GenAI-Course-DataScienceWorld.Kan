@@ -2,21 +2,21 @@ from typing import List, Optional
 import streamlit as st
 import os
 from dotenv import load_dotenv
-from llama_index.core.tools import BaseTool
-from llama_agent import StockQuantAgent
-from llama_tools import create_stock_tools
+from multi_agent_system import MultiAgentStockSystem
+from agent_config import AgentConfig
 
 # Load environment variables
 load_dotenv()
 
-# Initialize tools using the new function-based approach
-tools: List[BaseTool] = create_stock_tools(api_key=os.getenv("VNQUANT_API_KEY"))
+# Initialize configuration
+@st.cache_resource
+def initialize_system():
+    """Initialize the multi-agent system with caching"""
+    config = AgentConfig.from_env()
+    config.validate()
+    return MultiAgentStockSystem(api_key=config.openai_api_key), config
 
-# Initialize agent
-agent: StockQuantAgent = StockQuantAgent(
-    tools=tools,
-    api_key=os.getenv("OPENAI_API_KEY")
-)
+multi_agent_system, system_config = initialize_system()
 
 # Streamlit UI
 st.title("📈 Vietnamese Stock Analysis Assistant")
@@ -47,10 +47,10 @@ if prompt := st.chat_input("Hỏi về cổ phiếu Việt Nam (VD: Xin stock da
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # Get agent response
+    # Get multi-agent response
     with st.chat_message("assistant"):
         try:
-            response: str = agent.process_query(prompt)
+            response: str = multi_agent_system.process_query(prompt)
             st.markdown(response)
             st.session_state.messages.append({"role": "assistant", "content": response})
         except Exception as e:
@@ -65,19 +65,49 @@ with st.sidebar:
     # Clear chat history
     if st.button("Clear Chat History"):
         st.session_state.messages = []
-        agent.clear_memory()
+        multi_agent_system.clear_system_memory()
         st.rerun()
+    
+    # Multi-agent system stats
+    stats = multi_agent_system.get_system_stats()
+    st.header("🤖 Multi-Agent Stats")
+    st.write(f"📊 Total Sessions: {stats['total_sessions']}")
+    st.write(f"✅ Success Rate: {stats['success_rate']:.1f}%")
+    st.write(f"⚡ Avg Response Time: {stats['average_response_time']:.2f}s")
+    st.write(f"🏥 System Health: {stats['system_health'].title()}")
+    st.write(f"🧠 Planning Agent: {'Active' if stats['planning_agent_active'] else 'Idle'}")
+    st.write(f"🚀 Execution Agent: {'Active' if stats['execution_agent_active'] else 'Idle'}")
+    
+    # Health check button
+    if st.button("🔍 Run Health Check"):
+        with st.spinner("Running health check..."):
+            health = multi_agent_system.health_check()
+            st.json(health)
+    
+    # Configuration display
+    if st.checkbox("🔧 Show Configuration"):
+        st.subheader("System Configuration")
+        config_dict = system_config.to_dict()
+        st.json(config_dict)
     
     # Display chat history
     st.header("Chat History")
     for message in st.session_state.messages:
         st.text(f"{message['role']}: {message['content']}")
 
-# Information about available tools
+# Information about multi-agent system
 with st.sidebar:
-    st.header("🛠️ Available Tools")
-    st.write("📊 **Get Stock Data**: Lấy dữ liệu giá cổ phiếu Việt Nam")
-    st.write("📈 **Technical Analysis**: Phân tích kỹ thuật (SMA, RSI, MACD, Bollinger Bands)")
+    st.header("🤖 Multi-Agent Architecture")
+    st.write("🧠 **Planning Agent**: Specialized trong step-back analysis và strategic planning")
+    st.write("🚀 **Execution Agent**: Chuyên coordinate tools và synthesize results")
+    st.write("📊 **Stock Tools**: Get price data và technical analysis")
+    
+    st.header("⚡ Multi-Agent Advantages")
+    st.write("✅ **Specialized Reasoning**: Mỗi agent có expertise riêng")
+    st.write("✅ **Memory Management**: Separate memories cho planning vs execution")
+    st.write("✅ **Adaptive Planning**: Plan có thể adjust based on execution feedback")
+    st.write("✅ **Better Coordination**: Clear separation of concerns")
+    st.write("✅ **State Tracking**: Detailed tracking của plan progress")
     
     st.header("💡 Vietnamese Stock Symbols")
     st.write("- HAG (HAGL Agrico)")
