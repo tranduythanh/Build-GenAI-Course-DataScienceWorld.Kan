@@ -1,15 +1,15 @@
 import pandas as pd
 import pandas_ta as ta
 import numpy as np
-from typing import Dict, Optional, Union
+from typing import Dict, Optional, Union, List
 import logging
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 class TechAna:
     """Technical Analysis Tool for Stock Market Data"""
     
-    def analyze(self, df: pd.DataFrame, indicator: str, params: Optional[Dict] = None) -> Union[str, pd.DataFrame]:
+    def analyze(self, df: pd.DataFrame, indicator: str, params: Optional[Dict[str, Union[int, float]]] = None) -> Union[str, pd.DataFrame]:
         """
         Perform technical analysis on provided stock data
         
@@ -37,12 +37,13 @@ class TechAna:
             indicator = indicator.lower().replace(' bands', '')
             
             # Get the close price series
-            close_prices = df['close'].astype(np.float64).tolist()
-            close_prices = pd.Series(close_prices, index=df.index)
+            close_prices_list: List[float] = df['close'].astype(np.float64).tolist()
+            close_prices: pd.Series = pd.Series(close_prices_list, index=df.index)
 
             logger.debug(f"Close prices: {close_prices}")
             
             # Handle each indicator type
+            result: Optional[Union[pd.Series, pd.DataFrame]]
             if indicator == 'rsi':
                 # Default RSI parameters if none provided
                 if params is None:

@@ -67,6 +67,4 @@ with st.sidebar:
 with st.sidebar:
     st.header("Available Tools")
     st.write("- Get stock price data")
-    st.write("- Calculate technical indicators")
-    st.write("- Collect web data")
-    st.write("- Generate finance reports") 
+    st.write("- Calculate technical indicators") 
