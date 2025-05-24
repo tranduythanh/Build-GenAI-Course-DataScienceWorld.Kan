@@ -1,392 +1,304 @@
 # Hệ Thống Phân Tích Cổ Phiếu Việt Nam Multi-Agent
 
-Hệ thống phân tích cổ phiếu Việt Nam tiên tiến sử dụng kiến trúc multi-agent với AI-powered analysis, strategic planning và tool coordination chuyên nghiệp.
+Hệ thống phân tích cổ phiếu Việt Nam tiên tiến sử dụng kiến trúc multi-agent với LlamaIndex framework, OpenAI LLM và chuyên môn hóa từng agent để cung cấp phân tích chuyên sâu về thị trường chứng khoán Việt Nam.
 
 ## 🏗️ **Kiến Trúc Multi-Agent**
 
 ### **Tổng Quan Hệ Thống**
 ```
-📊 Hệ Thống Phân Tích Cổ Phiếu Việt Nam
-├── 🤖 MultiAgentStockSystem (Điều Phối Viên)
+📊 Hệ Thống Phân Tích Cổ Phiếu Việt Nam Multi-Agent
+│
+├── 🤖 MultiAgentStockSystem (Điều Phối Viên Chính)
 │   ├── 🧠 PlanningAgent (Chuyên Gia Lập Kế Hoạch)
-│   ├── 🚀 ExecutionAgent (Chuyên Gia Thực Thi) 
-│   └── 🛠️ Công Cụ Phân Tích
-│       ├── 📈 StockPriceTool (Công Cụ Giá Cổ Phiếu)
-│       └── 📊 TechnicalAnalysisTool (Công Cụ Phân Tích Kỹ Thuật)
-├── ⚙️ AgentConfig (Quản Lý Cấu Hình)
-└── 🖥️ Streamlit App (Giao Diện Người Dùng)
+│   ├── 🚀 ExecutionAgent (Chuyên Gia Thực Thi)
+│   └── 🛠️ Công Cụ Chuyên Biệt
+│       ├── 📈 StockPriceTool (AI-powered Stock Data)
+│       └── 📊 TechnicalAnalysisTool (Advanced Technical Indicators)
+│
+├── ⚙️ Cấu Hình & Quản Lý
+│   ├── AgentConfig (Cấu hình tập trung)
+│   ├── DataCollector (Thu thập dữ liệu VNQuant)
+│   └── Logger (Hệ thống logging)
+│
+└── 🖥️ Giao Diện
+    └── Streamlit App (Chat interface với real-time metrics)
 ```
 
 ### **Chuyên Môn Của Các Agent**
 
-| Agent | Chức Năng Chính | Chuyên Môn |
-|-------|----------------|------------|
-| 🧠 **PlanningAgent** | Phân tích step-back & Lập kế hoạch chiến lược | Phân tích ý định, Tạo kế hoạch, Đánh giá rủi ro |
-| 🚀 **ExecutionAgent** | Điều phối công cụ & Tổng hợp dữ liệu | Thực thi công cụ, Tích hợp kết quả, Định dạng đầu ra |
-| 🤖 **MultiAgentStockSystem** | Điều phối hệ thống | Quản lý agent, Quản lý phiên làm việc, Giám sát sức khỏe |
+| Agent | Chức Năng Chính | Khả Năng Đặc Biệt |
+|-------|-----------------|-------------------|
+| 🧠 **PlanningAgent** | Step-back analysis & Strategic planning | Hiểu ý định user, tạo kế hoạch thực thi, đánh giá rủi ro, adaptive planning |
+| 🚀 **ExecutionAgent** | Tool coordination & Data synthesis | Điều phối tools, tích hợp kết quả, tool output capture, memory management |
+| 🤖 **MultiAgentStockSystem** | System orchestration | Session management, performance metrics, health monitoring, response formatting |
 
-## 🔄 **Sơ Đồ Phối Hợp Làm Việc Giữa Agents và Tools**
+## 🔄 **Workflow Multi-Agent**
 
 ```mermaid
 graph TD
-    A[👤 Người Dùng Nhập Câu Hỏi] --> B[🤖 MultiAgentStockSystem]
+    A[👤 User Query] --> B[🤖 MultiAgentStockSystem]
     
-    subgraph "🎯 GIAI ĐOẠN LẬP KẾ HOẠCH"
+    subgraph "🎯 PLANNING PHASE"
         B --> C[🧠 PlanningAgent]
-        C --> D[📋 Phân Tích Step-back]
-        D --> E[🎯 Hiểu Ý Định Người Dùng]
-        E --> F[📊 Đánh Giá Context Thị Trường]
-        F --> G[📋 Tạo Kế Hoạch Chiến Lược]
-        G --> H[⚠️ Đánh Giá Rủi Ro]
+        C --> D[📋 Step-back Analysis]
+        D --> E[🎯 Intent Understanding]
+        E --> F[📊 Market Context Assessment]
+        F --> G[📋 Strategic Plan Creation]
+        G --> H[⚠️ Risk Evaluation]
     end
     
-    subgraph "🚀 GIAI ĐOẠN THỰC THI"
+    subgraph "🚀 EXECUTION PHASE"
         H --> I[🚀 ExecutionAgent]
-        I --> J[🔍 Phân Tích Kế Hoạch]
-        J --> K{🛠️ Chọn Công Cụ}
+        I --> J[🔍 Plan Analysis]
+        J --> K{🛠️ Tool Selection}
         
-        K -->|Cần dữ liệu giá| L[📈 StockPriceTool]
-        K -->|Cần phân tích kỹ thuật| M[📊 TechnicalAnalysisTool]
-        K -->|Cần cả hai| N[🔄 Sử Dụng Cả Hai Công Cụ]
+        K -->|Stock Data Needed| L[📈 StockPriceTool + AI Analysis]
+        K -->|Technical Analysis| M[📊 TechnicalAnalysisTool + Indicators]
+        K -->|Comprehensive Analysis| N[🔄 Both Tools + Synthesis]
         
-        L --> O[📊 Thu Thập Dữ Liệu Giá]
-        M --> P[📈 Tính Toán Chỉ Số Kỹ Thuật]
+        L --> O[📊 Data Collection & Processing]
+        M --> P[📈 Technical Calculation & AI Insights]
         N --> O
         N --> P
         
-        O --> Q[🔗 Tích Hợp Kết Quả]
+        O --> Q[🔗 Result Integration]
         P --> Q
-        Q --> R[✅ Kiểm Tra Chất Lượng]
-        R --> S[📝 Định Dạng Kết Quả]
+        Q --> R[✅ Quality Validation]
+        R --> S[📝 Response Formatting]
     end
     
-    subgraph "🔄 GIAI ĐOẠN HOÀN THIỆN"
-        S --> T[🧠 PlanningAgent]
-        T --> U[📊 Phân Tích Kết Quả Thực Thi]
-        U --> V[💡 Tạo Insights]
-        V --> W[📋 Đưa Ra Khuyến Nghị]
-        W --> X[⚡ Đánh Giá Hiệu Suất]
-        X --> Y[📄 Báo Cáo Toàn Diện]
+    subgraph "🔄 FINALIZATION PHASE"
+        S --> T[🧠 PlanningAgent Feedback]
+        T --> U[📊 Execution Results Analysis]
+        U --> V[💡 Strategic Insights Generation]
+        V --> W[📋 Recommendation Formulation]
+        W --> X[⚡ Performance Assessment]
+        X --> Y[📄 Comprehensive Report]
     end
     
-    Y --> Z[👤 Trả Lời Cho Người Dùng]
+    Y --> Z[👤 Formatted Response]
     
-    subgraph "📊 GIÁM SÁT HỆ THỐNG"
-        AA[🏥 Health Check]
+    subgraph "📊 SYSTEM MONITORING"
+        AA[🏥 Health Checks]
         BB[📈 Performance Metrics]
-        CC[📝 Logging]
-        DD[💾 Session Management]
+        CC[📝 Session Logging]
+        DD[💾 Memory Management]
     end
     
     B -.-> AA
     I -.-> BB
-    L -.-> CC
-    M -.-> CC
-    T -.-> DD
+    T -.-> CC
+    Z -.-> DD
 ```
-
-### **Chi Tiết Workflow**
-
-1. **🎯 Giai Đoạn Lập Kế Hoạch**
-   - Phân tích câu hỏi của người dùng
-   - Hiểu ý định và context
-   - Tạo kế hoạch chiến lược từng bước
-   - Đánh giá rủi ro và constraints
-
-2. **🚀 Giai Đoạn Thực Thi**
-   - Phân tích và hiểu kế hoạch
-   - Chọn công cụ phù hợp
-   - Thu thập và xử lý dữ liệu
-   - Kiểm tra và định dạng kết quả
-
-3. **🔄 Giai Đoạn Hoàn Thiện**
-   - Tổng hợp và phân tích kết quả
-   - Tạo insights và khuyến nghị
-   - Đánh giá hiệu suất
-   - Tạo báo cáo toàn diện
 
 ## 📁 **Cấu Trúc Dự Án**
 
 ```
-he-thong-phan-tich-co-phieu-vn/
-├── 🎯 **Hệ Thống Multi-Agent Cốt Lõi**
-│   ├── multi_agent_system.py      # Điều phối viên chính
-│   ├── agent_planning.py          # Chuyên gia lập kế hoạch
-│   ├── agent_execution.py         # Chuyên gia thực thi
-│   └── agent_config.py            # Quản lý cấu hình
+vietnamese-stock-multi-agent/
 │
-├── 🛠️ **Công Cụ Phân Tích**
-│   ├── llama_tool_stock_price.py      # Công cụ lấy dữ liệu giá
-│   └── llama_tool_technical_analysis.py # Công cụ phân tích kỹ thuật
+├── 🎯 **Multi-Agent Core System**
+│   ├── multi_agent_system.py          # Main orchestrator với session management
+│   ├── agent_planning.py              # Planning specialist với strategic analysis
+│   ├── agent_execution.py             # Execution specialist với tool coordination
+│   └── agent_config.py                # Centralized configuration management
 │
-├── 🖥️ **Giao Diện Người Dùng**
-│   └── app.py                     # Ứng dụng Streamlit
+├── 🛠️ **AI-Powered Tools**
+│   ├── llama_tool_stock_price.py      # Stock data tool với OpenAI analysis
+│   └── llama_tool_technical_analysis.py # Technical indicators với AI insights
 │
-├── 📊 **Dữ Liệu & Phân Tích**
-│   ├── data_collector.py          # Thu thập dữ liệu cơ bản
-│   ├── llama_data_collector.py    # Thu thập dữ liệu nâng cao
-│   ├── tech_analysis.py           # Tiện ích phân tích kỹ thuật
-│   └── finance.py                 # Xử lý dữ liệu tài chính
+├── 📊 **Data Infrastructure**
+│   ├── data_collector.py              # Base data collection từ VNQuant
+│   ├── llama_data_collector.py        # Enhanced collector với caching
+│   ├── tech_analysis.py               # Technical analysis utilities
+│   └── llama_types.py                 # Type definitions cho tools
 │
-├── ⚙️ **Cấu Hình & Tiện Ích**
-│   ├── config.py                  # Cấu hình hệ thống
-│   ├── logger.py                  # Tiện ích logging
-│   ├── llama_types.py            # Định nghĩa kiểu dữ liệu
-│   └── __init__.py               # Khởi tạo package
+├── 🖥️ **User Interface**
+│   └── app.py                          # Streamlit app với chat interface
 │
-├── 📋 **Tài Liệu & Thiết Lập**
-│   ├── README.md                  # File này
-│   ├── requirements.txt           # Dependencies
-│   └── .env.example              # Template biến môi trường
+├── ⚙️ **Configuration & Utilities**
+│   ├── config.py                      # System configuration
+│   ├── logger.py                      # Logging utilities
+│   └── __init__.py                    # Package initialization
 │
-└── 🧪 **Ví Dụ & Kiểm Thử**
-    ├── example_stock_data.py      # Ví dụ sử dụng
-    └── tests/                     # Test cases
+├── 📋 **Documentation & Setup**
+│   ├── README.md                      # This documentation
+│   ├── requirements.txt               # Dependencies
+│   └── .env.example                   # Environment template
+│
+└── 📦 **External Dependencies**
+    ├── vnquant/                       # Vietnamese stock data library
+    └── example_stock_data.py          # Usage examples
 ```
 
-### **Mô Tả Các File Quan Trọng**
+### **Core Components Chi Tiết**
 
-| File | Mô Tả | Vai Trò |
-|------|-------|---------|
-| `multi_agent_system.py` | Điều phối viên hệ thống | Quản lý agents, điều phối phiên làm việc |
-| `agent_planning.py` | Chuyên gia lập kế hoạch | Phân tích chiến lược, tạo kế hoạch |
-| `agent_execution.py` | Chuyên gia thực thi | Điều phối công cụ, tổng hợp dữ liệu |
-| `agent_config.py` | Quản lý cấu hình | Cài đặt tập trung |
-| `llama_tool_stock_price.py` | Công cụ dữ liệu cổ phiếu | Lấy dữ liệu giá với phân tích AI |
-| `llama_tool_technical_analysis.py` | Công cụ phân tích kỹ thuật | Chỉ số kỹ thuật với insights AI |
-| `app.py` | Giao diện Streamlit | Tương tác người dùng và hiển thị |
+| Component | Mô Tả Chi Tiết | Framework/Tech |
+|-----------|----------------|----------------|
+| `MultiAgentStockSystem` | Orchestrator chính, quản lý agents, session tracking, metrics | LlamaIndex, OpenAI |
+| `PlanningAgent` | Strategic planning với ChatMemoryBuffer, step-back analysis | ReActAgent, GPT-4o-mini |
+| `ExecutionAgent` | Tool coordination, output capture, memory management | ReActAgent, Tool orchestration |
+| `StockPriceTool` | VNQuant data + OpenAI analysis, formatted tables, AI insights | BaseTool, VNQuant, OpenAI |
+| `TechnicalAnalysisTool` | pandas-ta indicators + AI interpretation, trading signals | BaseTool, pandas-ta, OpenAI |
+| `DataCollector` | VNQuant integration với caching, multi-symbol support | VNQuant CAFE/VND APIs |
+| `AgentConfig` | Dataclass-based config với environment variable support | dataclasses, python-dotenv |
 
-## 💡 **Ví Dụ Câu Hỏi**
+## 🚀 **Hướng Dẫn Cài Đặt & Sử Dụng**
 
-### **📈 Phân Tích Giá Cổ Phiếu**
-```
-"Xin stock data của mã VIC từ 2024-01-01 đến 2024-06-30"
-"Lấy dữ liệu giá cổ phiếu FPT trong 3 tháng gần nhất"
-"Hiển thị performance của VNM trong năm 2024"
-"So sánh giá đóng cửa của HAG và MSN"
-"Phân tích xu hướng giá cổ phiếu VNINDEX"
-"Cho tôi xem biến động giá VCB trong tuần này"
-```
-
-### **📊 Phân Tích Kỹ Thuật**
-```
-"Tính RSI cho mã VIC với period 14 ngày"
-"Phân tích MACD của FPT trong 2 tháng qua"
-"Xem Bollinger Bands của VNM với period 20"
-"Technical analysis toàn diện cho mã HAG"
-"Tính SMA 20 và SMA 50 cho TCB"
-"Chỉ số kỹ thuật nào đang báo hiệu mua cho BID?"
-```
-
-### **🎯 Phân Tích Toàn Diện**
-```
-"Phân tích toàn diện cổ phiếu VIC bao gồm price và technical"
-"Đánh giá đầu tư cho mã FPT với timeframe 6 tháng"
-"So sánh technical indicators giữa VNM và MSN"
-"Tạo báo cáo phân tích chi tiết cho VNINDEX"
-"Khuyến nghị mua/bán cho cổ phiếu HAG dựa trên technical analysis"
-"Đưa ra strategy đầu tư cho nhóm cổ phiếu ngân hàng"
-```
-
-### **🔍 Nghiên Cứu Thị Trường**
-```
-"Cổ phiếu nào đang có RSI oversold trong danh sách VIC, FPT, VNM?"
-"Phân tích correlation giữa VNINDEX và các large cap"
-"Tìm signals mua/bán từ MACD của top banking stocks"
-"So sánh performance YTD của nhóm cổ phiếu technology"
-"Cổ phiếu nào đang breakout khỏi Bollinger Bands?"
-"Phân tích sentiment thị trường dựa trên volume trading"
-```
-
-## 🚀 **Hướng Dẫn Nhanh**
-
-### 1. **Cài Đặt**
+### **1. Cài Đặt Dependencies**
 ```bash
+# Clone repository
 git clone <repository-url>
-cd he-thong-phan-tich-co-phieu-vn
+cd vietnamese-stock-multi-agent
+
+# Install dependencies
 pip install -r requirements.txt
 ```
 
-### 2. **Thiết Lập Môi Trường**
+### **2. Cấu Hình Environment**
 ```bash
 # Tạo file .env
-echo "OPENAI_API_KEY=your_openai_api_key" > .env
+cp .env.example .env
+
+# Chỉnh sửa .env với API key
+OPENAI_API_KEY=your_openai_api_key_here
+LLM_MODEL=gpt-4o-mini
+LLM_TEMPERATURE=0.7
+MEMORY_TOKEN_LIMIT=2000
+ENABLE_LOGGING=true
+LOG_LEVEL=INFO
 ```
 
-### 3. **Chạy Ứng Dụng**
+### **3. Chạy Ứng Dụng**
 ```bash
+# Khởi động Streamlit app
 streamlit run app.py
+
+# Hoặc test trực tiếp với Python
+python -c "
+from multi_agent_system import MultiAgentStockSystem
+from agent_config import AgentConfig
+
+config = AgentConfig.from_env()
+system = MultiAgentStockSystem(api_key=config.openai_api_key)
+response = system.process_query('Phân tích cổ phiếu VIC')
+print(response)
+"
 ```
 
-### 4. **Kiểm Thử Hệ Thống Multi-Agent**
+### **4. Usage Examples**
 ```python
 from multi_agent_system import MultiAgentStockSystem
 from agent_config import AgentConfig
 
-# Khởi tạo hệ thống
+# Initialize system
 config = AgentConfig.from_env()
 system = MultiAgentStockSystem(api_key=config.openai_api_key)
 
-# Kiểm thử câu hỏi
-response = system.process_query("Phân tích cổ phiếu VIC")
-print(response)
-```
+# Get planning insights only
+plan = system.get_planning_insights("Phân tích VIC technical indicators")
 
-## ⚙️ **Cấu Hình**
+# Execute custom plan
+results = system.execute_custom_plan(plan, "Custom VIC analysis")
 
-### **Biến Môi Trường**
-```bash
-# Bắt buộc
-OPENAI_API_KEY=your_openai_api_key
-
-# Tùy chọn
-LLM_MODEL=gpt-4o-mini                # Model mặc định
-LLM_TEMPERATURE=0.7                  # Độ sáng tạo trong phản hồi
-MEMORY_TOKEN_LIMIT=2000              # Giới hạn memory agent
-ENABLE_LOGGING=true                  # Bật logging hệ thống
-LOG_LEVEL=INFO                       # Mức độ chi tiết logging
-```
-
-### **Cấu Hình Hệ Thống**
-```python
-# agent_config.py - Các thiết lập quan trọng
-llm_model: str = "gpt-4o-mini"          # Nhanh và tiết kiệm chi phí
-planning_temperature: float = 0.7       # Lập kế hoạch sáng tạo
-execution_temperature: float = 0.5      # Thực thi chính xác
-memory_token_limit: int = 2000          # Cửa sổ context
-max_response_time: float = 30.0         # Giới hạn thời gian phản hồi
-```
-
-## 🛠️ **Công Cụ Có Sẵn**
-
-### **📈 Công Cụ Giá Cổ Phiếu**
-- **Nguồn Dữ Liệu**: Thư viện VNQuant
-- **Mã Hỗ Trợ**: VIC, FPT, VNM, HAG, MSN, TCB, VCB, BID, CTG, MBB, VNINDEX
-- **Tính Năng**: Dữ liệu lịch sử, phân tích performance, insights AI
-- **Cache**: Thời lượng 5 phút để tối ưu hiệu suất
-
-### **📊 Công Cụ Phân Tích Kỹ Thuật**
-- **Chỉ Số**: SMA, RSI, MACD, Bollinger Bands
-- **Thư Viện**: pandas-ta
-- **Tính Năng**: Phân tích đa timeframe, phát hiện xu hướng
-- **Nâng Cao AI**: Giải thích và tín hiệu giao dịch
-
-## 🤖 **Khả Năng Của Các Agent**
-
-### **🧠 Planning Agent (Agent Lập Kế Hoạch)**
-- **Phân Tích Step-back**: Hiểu sâu ý định người dùng
-- **Lập Kế Hoạch Chiến Lược**: Kế hoạch thực thi nhiều bước
-- **Đánh Giá Rủi Ro**: Đánh giá rủi ro thị trường
-- **Lập Kế Hoạch Thích Ứng**: Điều chỉnh kế hoạch dựa trên kết quả
-
-### **🚀 Execution Agent (Agent Thực Thi)**
-- **Điều Phối Công Cụ**: Lựa chọn và sắp xếp công cụ thông minh
-- **Tổng Hợp Dữ Liệu**: Tích hợp dữ liệu từ nhiều nguồn
-- **Đảm Bảo Chất Lượng**: Kiểm tra và định dạng kết quả
-- **Xử Lý Lỗi**: Quản lý lỗi một cách graceful
-
-## 📊 **Giám Sát Hệ Thống**
-
-### **Kiểm Tra Sức Khỏe**
-- Giám sát trạng thái agent
-- Xác minh tính khả dụng của công cụ
-- Theo dõi metrics hiệu suất
-- Giám sát tỷ lệ lỗi
-
-### **Metrics Hiệu Suất**
-- Theo dõi thời gian phản hồi
-- Tính toán tỷ lệ thành công
-- Quản lý phiên làm việc
-- Sử dụng tài nguyên
-
-## 🎯 **Tập Trung Vào Thị Trường Chứng Khoán Việt Nam**
-
-### **Sàn Giao Dịch Hỗ Trợ**
-- **HOSE**: Sở Giao Dịch Chứng Khoán TP.HCM
-- **HNX**: Sở Giao Dịch Chứng Khoán Hà Nội
-- **UPCOM**: Thị trường cổ phiếu của các công ty đại chúng chưa niêm yết
-
-### **Mã Cổ Phiếu Phổ Biến**
-- **Ngân Hàng**: VCB, BID, CTG, TCB, MBB
-- **Bất Động Sản**: VIC, VHM, NVL
-- **Công Nghệ**: FPT, CMG
-- **Tiêu Dùng**: VNM, MSN, SAB
-- **Chỉ Số**: VNINDEX, VN30
-
-### **Đặc Điểm Thị Trường**
-- **Giờ Giao Dịch**: 9:00 AM - 3:00 PM (GMT+7)
-- **Biên Độ Giá**: ±7% mỗi ngày
-- **Thanh Toán**: T+2 cho cổ phiếu
-- **Đồng Tiền**: Đồng Việt Nam (VND)
-
-## 🔧 **Sử Dụng Nâng Cao**
-
-### **Pipeline Phân Tích Tùy Chỉnh**
-```python
-# Giai đoạn lập kế hoạch
-plan = system.get_planning_insights("Phân tích VIC")
-
-# Thực thi tùy chỉnh
-results = system.execute_custom_plan(plan, "Phân tích tùy chỉnh")
-
-# Thống kê hệ thống
+# System monitoring
 stats = system.get_system_stats()
-print(f"Tỷ lệ thành công: {stats['success_rate']}%")
-```
-
-### **Giám Sát Sức Khỏe**
-```python
-# Kiểm tra sức khỏe
 health = system.health_check()
-print(f"Trạng thái hệ thống: {health['overall_status']}")
 
-# Xóa memory hệ thống
+# Memory management
 system.clear_system_memory()
 ```
 
-## 📋 **Dependencies**
+## ⚙️ **Cấu Hình Hệ Thống**
 
-### **Framework Cốt Lõi**
-- `llama-index`: Framework AI agent
-- `openai`: Tích hợp LLM
-- `streamlit`: Giao diện web
+### **AgentConfig Parameters**
+```python
+@dataclass
+class AgentConfig:
+    # API Configuration
+    openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
+    
+    # LLM Configuration
+    llm_model: str = "gpt-4o-mini"              # Cost-effective model
+    llm_temperature: float = 0.7                # Balance creativity/accuracy
+    llm_max_tokens: int = 1000                  # Response length limit
+    
+    # Memory Configuration
+    memory_token_limit: int = 2000              # Context window size
+    max_session_history: int = 100              # Session retention
+    
+    # Agent Specialization
+    planning_temperature: float = 0.7           # Creative planning
+    execution_temperature: float = 0.5          # Accurate execution
+    
+    # Performance Settings
+    max_response_time: float = 30.0             # Timeout protection
+    max_retries: int = 3                        # Error resilience
+    
+    # Vietnamese Stock Market
+    supported_symbols: list = [                 # Major VN stocks
+        "HAG", "VIC", "FPT", "VNM", "MSN",
+        "VCB", "BID", "CTG", "TCB", "MBB", 
+        "VNINDEX"
+    ]
+```
 
-### **Dữ Liệu & Phân Tích**
-- `vnquant`: Dữ liệu cổ phiếu Việt Nam
-- `pandas`: Thao tác dữ liệu
-- `pandas-ta`: Phân tích kỹ thuật
-- `numpy`: Tính toán số học
+### **Environment Variables**
+```bash
+# Required
+OPENAI_API_KEY=your_openai_api_key
 
-### **Tiện Ích**
-- `python-dotenv`: Quản lý biến môi trường
-- `typing`: Type hints
-- `dataclasses`: Quản lý cấu hình
+# Optional Customization
+LLM_MODEL=gpt-4o-mini                    # Model selection
+LLM_TEMPERATURE=0.7                      # Response creativity
+LLM_MAX_TOKENS=1000                      # Response length
+MEMORY_TOKEN_LIMIT=2000                  # Agent memory size
+ENABLE_LOGGING=true                      # System logging
+LOG_LEVEL=INFO                           # Log verbosity
+```
 
-## 🔄 **Lộ Trình Phát Triển**
+## 🛠️ **Công Cụ AI-Powered**
 
-### **Phiên Bản Hiện Tại (v2.0)**
-- ✅ Kiến trúc multi-agent
-- ✅ Hệ thống lập kế hoạch chiến lược
-- ✅ Điều phối công cụ
-- ✅ Giám sát sức khỏe
+### **📈 StockPriceTool**
+- **Data Source**: VNQuant library (CAFE/VND APIs)
+- **AI Enhancement**: OpenAI analysis của price trends và market insights
+- **Supported Symbols**: VIC, FPT, VNM, HAG, MSN, TCB, VCB, BID, CTG, MBB, VNINDEX,...
+- **Output Format**: 
+  - Recent 10 Trading Days table
+  - Performance metrics
+  - AI-generated investment insights
+  - Risk assessment
 
-### **Cải Tiến Tương Lai**
-- 🔄 Streaming dữ liệu realtime
-- 🔄 Agent tối ưu hóa danh mục
-- 🔄 Công cụ quản lý rủi ro
-- 🔄 Hỗ trợ đa ngôn ngữ
-- 🔄 Trực quan hóa nâng cao
+**Tool Capabilities:**
+```python
+# Automatic symbol detection và date range handling
+input: "VIC" -> gets recent stock data với AI analysis
+input: {"symbol": "FPT", "start_date": "2024-01-01", "end_date": "2024-06-30"}
+output: Formatted tables + AI insights trong Vietnamese
+```
 
-## 📞 **Hỗ Trợ**
+### **📊 TechnicalAnalysisTool**
+- **Indicators**: SMA_20, RSI_14, MACD, Bollinger Bands
+- **Library**: pandas-ta cho accurate calculations
+- **AI Enhancement**: OpenAI interpretation của technical signals
+- **Trading Signals**: Buy/sell recommendations với risk warnings
 
-Hệ thống được thiết kế đặc biệt cho thị trường chứng khoán Việt Nam với:
-- **Giao diện tiếng Việt**: Interface thân thiện với người Việt
-- **Kiến thức thị trường địa phương**: Hiểu biết về thị trường VN
-- **Chỉ số đặc thù Việt Nam**: Indicators phù hợp với thị trường
-- **Tuân thủ quy định**: Awareness về quy định pháp lý
+**Technical Capabilities:**
+```python
+# Flexible input handling
+input: "HAG" -> fetches data + calculates all indicators
+input: stock_data_from_previous_tool -> direct calculation
+output: 
+  - Latest Technical Indicators table
+  - Recent 5 Days Technical Indicators  
+  - AI trading signal analysis
+  - Support/resistance levels
+```
 
-**Lưu Ý Quan Trọng**: Đây là công cụ phân tích, không phải tư vấn đầu tư. Luôn thực hiện nghiên cứu độc lập và cân nhắc kỹ lưỡng trước khi đưa ra quyết định đầu tư.
+## 💡 **Sample Queries & Use Cases**
 
----
-
-🇻🇳 **Made with ❤️ for Vietnamese Stock Market**
+### **📈 Stock Price Analysis**
+- Cho biết stock data của mã VIC từ 2024-01-01 đến 2024-06-30,
+- Lấy dữ liệu giá cổ phiếu FPT trong 3 tháng gần nhất, 
+- Hiển thị performance của VNM trong năm 2024,
+- Phân tích xu hướng giá cổ phiếu VNINDEX,
+- So sánh giá đóng cửa của HAG và MSN
