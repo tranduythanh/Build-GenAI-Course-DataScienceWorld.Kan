@@ -1,4 +1,4 @@
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from llama_index.core.agent import ReActAgent
 from llama_index.core.tools import BaseTool
 from llama_index.llms.openai import OpenAI
@@ -6,14 +6,14 @@ from llama_index.core.memory import ChatMemoryBuffer
 from llama_index.core import Settings
 
 class StockQuantAgent:
-    def __init__(self, tools: List[BaseTool], api_key: str):
-        self.llm = OpenAI(api_key=api_key)
+    def __init__(self, tools: List[BaseTool], api_key: str) -> None:
+        self.llm: OpenAI = OpenAI(api_key=api_key)
         
         # Set global settings
         Settings.llm = self.llm
         
         # Initialize agent with tools
-        self.agent = ReActAgent.from_tools(
+        self.agent: ReActAgent = ReActAgent.from_tools(
             tools=tools,
             llm=self.llm,
             verbose=True
@@ -39,7 +39,7 @@ class StockQuantAgent:
         except AttributeError:
             return []
 
-    def clear_memory(self):
+    def clear_memory(self) -> None:
         """
         Clear the chat memory
         """

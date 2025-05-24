@@ -1,6 +1,8 @@
+from typing import List, Optional
 import streamlit as st
 import os
 from dotenv import load_dotenv
+from llama_index.core.tools import BaseTool
 from llama_agent import StockQuantAgent
 from llama_tools import create_stock_tools
 
@@ -8,10 +10,10 @@ from llama_tools import create_stock_tools
 load_dotenv()
 
 # Initialize tools using the new function-based approach
-tools = create_stock_tools(api_key=os.getenv("VNQUANT_API_KEY"))
+tools: List[BaseTool] = create_stock_tools(api_key=os.getenv("VNQUANT_API_KEY"))
 
 # Initialize agent
-agent = StockQuantAgent(
+agent: StockQuantAgent = StockQuantAgent(
     tools=tools,
     api_key=os.getenv("OPENAI_API_KEY")
 )
@@ -38,11 +40,11 @@ if prompt := st.chat_input("What would you like to know about the stock market?"
     # Get agent response
     with st.chat_message("assistant"):
         try:
-            response = agent.process_query(prompt)
+            response: str = agent.process_query(prompt)
             st.markdown(response)
             st.session_state.messages.append({"role": "assistant", "content": response})
         except Exception as e:
-            error_msg = f"Error: {str(e)}"
+            error_msg: str = f"Error: {str(e)}"
             st.markdown(error_msg)
             st.session_state.messages.append({"role": "assistant", "content": error_msg})
 

@@ -1,3 +1,4 @@
+from typing import List
 from data_collector import StockDataCollector
 import pandas as pd
 from datetime import datetime, timedelta
@@ -12,9 +13,9 @@ logging.basicConfig(
         logging.StreamHandler(sys.stdout)
     ]
 )
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
-def print_stock_data(data, symbol):
+def print_stock_data(data: pd.DataFrame, symbol: str) -> None:
     """Helper function to print stock data in a formatted way"""
     print(f"\n=== Stock Data for {symbol} from CAFE ===")
     print(f"Data Period: {data.index[0].strftime('%Y-%m-%d')} to {data.index[-1].strftime('%Y-%m-%d')}")
@@ -26,35 +27,35 @@ def print_stock_data(data, symbol):
     print("\nSummary Statistics:")
     print(data.describe())
 
-def main():
+def main() -> None:
     # Initialize the collector
     logger.info("Initializing StockDataCollector...")
-    collector = StockDataCollector()
+    collector: StockDataCollector = StockDataCollector()
     
     # Set default date range to 1 year
-    default_start_date = (datetime.now() - timedelta(days=365)).strftime('%Y-%m-%d')
-    default_end_date = datetime.now().strftime('%Y-%m-%d')
+    default_start_date: str = (datetime.now() - timedelta(days=365)).strftime('%Y-%m-%d')
+    default_end_date: str = datetime.now().strftime('%Y-%m-%d')
     
     try:
         # Example 1: Fetch data for a single stock (VIC) with default parameters
         logger.info("Example 1: Fetching VIC data with default parameters")
-        vic_data = collector.fetch_stock_data('VIC', default_start_date, default_end_date)
+        vic_data: pd.DataFrame = collector.fetch_stock_data('VIC', default_start_date, default_end_date)
         print_stock_data(vic_data, 'VIC')
         
         # Example 2: Fetch data for a specific date range (last 30 days)
         logger.info("Example 2: Fetching VIC data for specific date range")
-        start_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
-        end_date = datetime.now().strftime('%Y-%m-%d')
-        vic_data_recent = collector.fetch_stock_data('VIC', start_date, end_date)
+        start_date: str = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
+        end_date: str = datetime.now().strftime('%Y-%m-%d')
+        vic_data_recent: pd.DataFrame = collector.fetch_stock_data('VIC', start_date, end_date)
         print_stock_data(vic_data_recent, 'VIC')
         
         # Example 3: Fetch data for multiple stocks with default date range
         logger.info("Example 3: Fetching data for multiple stocks")
-        stocks = ['VIC', 'VNM', 'FPT']
+        stocks: List[str] = ['VIC', 'VNM', 'FPT']
         for stock in stocks:
             try:
                 logger.info(f"Fetching data for {stock}...")
-                data = collector.fetch_stock_data(stock, default_start_date, default_end_date)
+                data: pd.DataFrame = collector.fetch_stock_data(stock, default_start_date, default_end_date)
                 print_stock_data(data, stock)
             except Exception as e:
                 logger.error(f"Error fetching data for {stock}: {str(e)}")

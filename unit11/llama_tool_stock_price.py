@@ -1,3 +1,4 @@
+from typing import Union, Dict, Any, Optional
 from llama_index.core.tools import BaseTool, ToolMetadata, ToolOutput
 from datetime import datetime
 from llama_data_collector import DataCollector
@@ -7,8 +8,8 @@ from logger import tool_logger
 class StockPriceTool(BaseTool):
     """Tool for getting stock price data"""
     
-    def __init__(self):
-        self.data_collector = DataCollector()
+    def __init__(self) -> None:
+        self.data_collector: DataCollector = DataCollector()
     
     @property
     def metadata(self) -> ToolMetadata:
@@ -27,7 +28,7 @@ class StockPriceTool(BaseTool):
             - {"symbol": "VNINDEX", "start_date": "2024-01-01"} - end_date defaults to today"""
         )
     
-    def __call__(self, input: str) -> ToolOutput:
+    def __call__(self, input: Union[str, Dict[str, Any]]) -> ToolOutput:
         """Get stock price data for a given symbol and date range
         
         Args:
@@ -46,6 +47,11 @@ class StockPriceTool(BaseTool):
         """
         try:
             # Normalize input to always be a dictionary for raw_input
+            raw_input_dict: Dict[str, Any]
+            symbol: Optional[str]
+            start_date: Optional[str]
+            end_date: Optional[str]
+            
             if isinstance(input, str):
                 # If input is just a string, treat it as the symbol
                 symbol = input
@@ -130,7 +136,7 @@ class StockPriceTool(BaseTool):
             ) 
         
 if __name__ == "__main__":
-    tool = StockPriceTool()
+    tool: StockPriceTool = StockPriceTool()
     print("\n\n\nmetadata")
     print(tool.metadata)
     
