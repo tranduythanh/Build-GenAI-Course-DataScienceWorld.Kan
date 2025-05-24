@@ -1,6 +1,7 @@
 from typing import Dict, Any, Union, List
 from llama_index.core.tools import BaseTool, ToolMetadata, ToolOutput
 import pandas as pd
+import pandas_ta as ta
 
 
 class TechnicalAnalysisTool(BaseTool):
@@ -51,20 +52,45 @@ class TechnicalAnalysisTool(BaseTool):
             df: pd.DataFrame
             if isinstance(data, dict):
                 df = pd.DataFrame(data)
+            elif isinstance(data, list):
+                df = pd.DataFrame(data)
             else:
-                df = data
+                df = data.copy()
+                
+            # Ensure required columns exist and convert to numeric
+            if 'close' not in df.columns:
+                if 'Close' in df.columns:
+                    df['close'] = pd.to_numeric(df['Close'], errors='coerce')
+                elif 'adjust' in df.columns:
+                    df['close'] = pd.to_numeric(df['adjust'], errors='coerce')
+                else:
+                    # Use the last numeric column as close price
+                    numeric_cols = df.select_dtypes(include=['number']).columns
+                    if len(numeric_cols) > 0:
+                        df['close'] = df[numeric_cols[-1]]
+                    else:
+                        raise ValueError("No numeric columns found for close price")
+            else:
+                df['close'] = pd.to_numeric(df['close'], errors='coerce')
+                
+            # Remove rows with NaN close prices
+            df = df.dropna(subset=['close'])
                 
             # Calculate SMA
-            df.ta.sma(length=20, append=True)
+            df['SMA_20'] = ta.sma(df['close'], length=20)
             
             # Calculate RSI
-            df.ta.rsi(length=14, append=True)
+            df['RSI_14'] = ta.rsi(df['close'], length=14)
             
             # Calculate MACD
-            df.ta.macd(append=True)
+            macd_data = ta.macd(df['close'])
+            if macd_data is not None:
+                df = pd.concat([df, macd_data], axis=1)
             
             # Calculate Bollinger Bands
-            df.ta.bbands(length=20, append=True)
+            bb_data = ta.bbands(df['close'], length=20)
+            if bb_data is not None:
+                df = pd.concat([df, bb_data], axis=1)
             
             result: List[Dict[str, Any]] = df.to_dict(orient="records")
             return ToolOutput(
