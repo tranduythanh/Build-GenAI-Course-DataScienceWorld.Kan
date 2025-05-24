@@ -18,20 +18,14 @@ class MultiAgentStockSystem:
     def __init__(self, api_key: str) -> None:
         self.api_key = api_key
         
+        # Tool outputs storage for display in final response (must be before agents init)
+        self.tool_outputs: Dict[str, Any] = {}
+        
         # Initialize tools
         self.tools: List[BaseTool] = [
             StockPriceTool(),
             TechnicalAnalysisTool()
         ]
-        
-        try:
-            # Initialize specialized agents
-            self.planning_agent = PlanningAgent(api_key=api_key)
-            self.execution_agent = ExecutionAgent(tools=self.tools, api_key=api_key)
-            logger.info("Multi-agent system initialized successfully")
-        except Exception as e:
-            logger.error(f"Failed to initialize agents: {str(e)}")
-            raise
         
         # System state
         self.current_session: Optional[Dict[str, Any]] = None
@@ -42,12 +36,24 @@ class MultiAgentStockSystem:
             "failed_queries": 0,
             "average_response_time": 0.0
         }
+        
+        try:
+            # Initialize specialized agents
+            self.planning_agent = PlanningAgent(api_key=api_key)
+            self.execution_agent = ExecutionAgent(tools=self.tools, api_key=api_key, tool_outputs_storage=self.tool_outputs)
+            logger.info("Multi-agent system initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize agents: {str(e)}")
+            raise
     
     def process_query(self, user_query: str, context: Dict[str, Any] = None) -> str:
         """Process user query using multi-agent approach"""
         
         start_time = datetime.now()
         self.system_metrics["total_queries"] += 1
+        
+        # Clear previous tool outputs
+        self.tool_outputs.clear()
         
         logger.info(f"Processing query: {user_query[:50]}...")
         
@@ -135,6 +141,9 @@ class MultiAgentStockSystem:
         final_analysis = session.get("final_summary", {}).get("final_analysis", "No final summary")
         response_time = session.get("response_time", 0)
         
+        # Build tool outputs section
+        tool_outputs_section = self._format_tool_outputs()
+        
         response = f"""
 🎯 **COMPREHENSIVE VIETNAMESE STOCK ANALYSIS**
 
@@ -151,6 +160,8 @@ class MultiAgentStockSystem:
 ## 🚀 **EXECUTION RESULTS**
 
 {execution_response}
+
+{tool_outputs_section}
 
 ---
 
@@ -169,6 +180,41 @@ class MultiAgentStockSystem:
         """
         
         return response.strip()
+    
+    def _format_tool_outputs(self) -> str:
+        """Format tool outputs for display"""
+        if not self.tool_outputs:
+            return ""
+        
+        sections = []
+        
+        # Stock Price Data Section
+        if "get_stock_price" in self.tool_outputs:
+            stock_content = self.tool_outputs["get_stock_price"]["content"]
+            sections.append(f"""
+### 📊 **STOCK PRICE DATA**
+
+{stock_content}
+""")
+        
+        # Technical Analysis Section  
+        if "calculate_technical_indicators" in self.tool_outputs:
+            ta_content = self.tool_outputs["calculate_technical_indicators"]["content"]
+            sections.append(f"""
+### 📈 **TECHNICAL ANALYSIS**
+
+{ta_content}
+""")
+        
+        if sections:
+            return f"""
+---
+
+## 📋 **DETAILED DATA & ANALYSIS**
+
+{"".join(sections)}"""
+        
+        return ""
     
     def _update_average_response_time(self, new_time: float) -> None:
         """Update running average of response times"""

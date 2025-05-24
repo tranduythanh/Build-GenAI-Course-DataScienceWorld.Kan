@@ -193,11 +193,11 @@ Trả lời bằng tiếng Việt, ngắn gọn và dễ hiểu (tối đa 200 t
                 content_lines.append(f"- **Low**: {low_price} VND")
                 content_lines.append(f"- **Volume**: {volume}")
                 
-                # Show last 10 data points
+                # Show last 10 data points with actual dates
                 display_count = min(10, len(result))
                 content_lines.append(f"\n**📋 Recent {display_count} Trading Days:**")
-                content_lines.append("| Date | Close | High | Low | Volume |")
-                content_lines.append("|------|-------|------|-----|--------|")
+                content_lines.append("| Date | Close (VND) | High (VND) | Low (VND) | Volume |")
+                content_lines.append("|------|-------------|------------|-----------|--------|")
                 
                 for i, row in enumerate(result[-display_count:]):
                     # Handle multi-level columns
@@ -205,6 +205,9 @@ Trả lời bằng tiếng Việt, ngắn gọn và dễ hiểu (tối đa 200 t
                     high_price = row.get('high', row.get(('high', symbol), 'N/A'))
                     low_price = row.get('low', row.get(('low', symbol), 'N/A'))
                     volume = row.get('volume_match', row.get(('volume_match', symbol), 'N/A'))
+                    
+                    # Get date from index if available
+                    date_str = row.get('date', row.get('Date', f"Day {len(result)-display_count+i+1}"))
                     
                     # Try to format volume nicely
                     if volume != 'N/A' and volume:
@@ -217,7 +220,7 @@ Trả lời bằng tiếng Việt, ngắn gọn và dễ hiểu (tối đa 200 t
                         except:
                             pass
                     
-                    content_lines.append(f"| Day {len(result)-display_count+i+1} | {close_price} | {high_price} | {low_price} | {volume} |")
+                    content_lines.append(f"| {date_str} | {close_price} | {high_price} | {low_price} | {volume} |")
                 
                 # Calculate some basic stats
                 try:

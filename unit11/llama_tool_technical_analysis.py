@@ -246,25 +246,47 @@ Trả lời bằng tiếng Việt, ngắn gọn và chuyên nghiệp (tối đa 
                     except:
                         pass
                 
-                # Show recent 5 days indicators summary
+                # Show recent 5 days indicators summary with dates
                 display_count = min(5, len(result))
-                content_lines.append(f"\n**📋 Recent {display_count} Days Summary:**")
-                content_lines.append("| Day | Price | SMA(20) | RSI(14) | MACD Signal |")
-                content_lines.append("|-----|-------|---------|---------|-------------|")
+                content_lines.append(f"\n**📋 Recent {display_count} Days Technical Indicators:**")
+                content_lines.append("| Date | Price (VND) | SMA(20) | RSI(14) | MACD | Signal | Bollinger |")
+                content_lines.append("|------|-------------|---------|---------|------|--------|-----------|")
                 
                 for i, row in enumerate(result[-display_count:]):
-                    day_num = len(result) - display_count + i + 1
+                    # Get date
+                    date_str = row.get('date', row.get('Date', f"Day {len(result)-display_count+i+1}"))
+                    
+                    # Get values
                     price = row.get('close', row.get('adjust', 'N/A'))
                     sma = row.get('SMA_20', 'N/A')
                     rsi = row.get('RSI_14', 'N/A')
+                    macd_line = row.get('MACD_12_26_9', 'N/A')
                     macd_sig = row.get('MACDs_12_26_9', 'N/A')
+                    bb_upper = row.get('BBU_20_2.0', 'N/A')
+                    bb_lower = row.get('BBL_20_2.0', 'N/A')
                     
                     # Format values
                     sma_str = f"{sma:.2f}" if sma != 'N/A' and not pd.isna(sma) else 'N/A'
                     rsi_str = f"{rsi:.1f}" if rsi != 'N/A' and not pd.isna(rsi) else 'N/A'
-                    macd_str = f"{macd_sig:.3f}" if macd_sig != 'N/A' and not pd.isna(macd_sig) else 'N/A'
+                    macd_str = f"{macd_line:.3f}" if macd_line != 'N/A' and not pd.isna(macd_line) else 'N/A'
+                    macd_sig_str = f"{macd_sig:.3f}" if macd_sig != 'N/A' and not pd.isna(macd_sig) else 'N/A'
                     
-                    content_lines.append(f"| {day_num} | {price} | {sma_str} | {rsi_str} | {macd_str} |")
+                    # Bollinger position
+                    bb_pos = "N/A"
+                    try:
+                        if bb_upper != 'N/A' and bb_lower != 'N/A' and price != 'N/A':
+                            if not pd.isna(bb_upper) and not pd.isna(bb_lower):
+                                price_val = float(price)
+                                if price_val >= bb_upper:
+                                    bb_pos = "Above"
+                                elif price_val <= bb_lower:
+                                    bb_pos = "Below"
+                                else:
+                                    bb_pos = "Within"
+                    except:
+                        pass
+                    
+                    content_lines.append(f"| {date_str} | {price} | {sma_str} | {rsi_str} | {macd_str} | {macd_sig_str} | {bb_pos} |")
                 
                 content_lines.append(f"\n**💡 Analysis Summary:**")
                 content_lines.append(f"- Technical indicators calculated successfully")

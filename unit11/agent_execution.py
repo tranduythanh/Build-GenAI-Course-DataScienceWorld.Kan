@@ -8,7 +8,7 @@ from llama_index.core import Settings
 class ExecutionAgent:
     """Specialized agent for coordinating tool execution based on strategic plans"""
     
-    def __init__(self, tools: List[BaseTool], api_key: str) -> None:
+    def __init__(self, tools: List[BaseTool], api_key: str, tool_outputs_storage: Dict[str, Any] = None) -> None:
         self.llm: OpenAI = OpenAI(api_key=api_key)
         self.tools = tools
         
@@ -16,7 +16,10 @@ class ExecutionAgent:
         self.current_execution: Optional[Dict[str, Any]] = None
         self.execution_results: List[Dict[str, Any]] = []
         
-        # System prompt for execution specialist
+        # Reference to shared tool outputs storage
+        self.tool_outputs_storage = tool_outputs_storage or {}
+        
+        # System prompt for execution specialist  
         execution_prompt = """Bạn là Execution Agent chuyên nghiệp cho việc thực hiện phân tích cổ phiếu Việt Nam.
 
 CORE COMPETENCIES:
@@ -54,11 +57,18 @@ EXECUTION PRINCIPLES:
 RESPONSE FORMAT:
 1. Determine required tools based on query/plan
 2. Execute tools with appropriate parameters 
-3. Analyze ACTUAL results from tools
-4. Provide insights based on REAL DATA
-5. Give recommendations based on CONCRETE FINDINGS
+3. INCLUDE FULL TOOL OUTPUTS trong response (bảng stock prices + technical indicators)
+4. Analyze ACTUAL results from tools
+5. Provide insights based on REAL DATA với references đến cụ thể từng chỉ số
+6. Give recommendations based on CONCRETE FINDINGS
 
-Focus on efficient, accurate execution theo strategic plan với REAL DATA từ tools."""
+🔥 CRITICAL OUTPUT REQUIREMENTS:
+- BẮT BUỘC copy nguyên văn bảng "Recent 10 Trading Days" từ get_stock_price
+- BẮT BUỘC copy nguyên văn bảng "Recent 5 Days Technical Indicators" từ calculate_technical_indicators  
+- BẮT BUỘC show Latest Technical Indicators với số liệu cụ thể
+- User phải thấy được RAW DATA, không chỉ summary
+
+Focus on efficient, accurate execution theo strategic plan với FULL DATA DISPLAY từ tools."""
 
         # Initialize memory for execution context
         self.memory = ChatMemoryBuffer.from_defaults(token_limit=2000)
@@ -71,6 +81,31 @@ Focus on efficient, accurate execution theo strategic plan với REAL DATA từ 
             verbose=True,
             system_prompt=execution_prompt
         )
+        
+        # Hook into agent's tool execution to capture outputs
+        self._setup_tool_capture()
+    
+    def _setup_tool_capture(self) -> None:
+        """Setup tool output capture by wrapping tools"""
+        for tool in self.tools:
+            original_call = tool.__call__
+            
+            def captured_call(input_data, tool_ref=tool, original_method=original_call):
+                # Call original tool
+                result = original_method(input_data)
+                
+                # Store the output for later use
+                tool_name = tool_ref.metadata.name
+                self.tool_outputs_storage[tool_name] = {
+                    "input": input_data,
+                    "output": result,
+                    "content": result.content if hasattr(result, 'content') else str(result)
+                }
+                
+                return result
+            
+            # Replace the tool's call method
+            tool.__call__ = captured_call
     
     def execute_plan(self, plan: Dict[str, Any], user_query: str) -> Dict[str, Any]:
         """Execute a strategic plan step by step"""
@@ -106,14 +141,35 @@ Keywords requiring calculate_technical_indicators: RSI, SMA, MACD, Bollinger, ch
 
 EXECUTION STEPS:
 1. Identify symbol từ user query (VIC, FPT, VNM, HAG, MSN, VNINDEX, etc.)
-2. IMMEDIATELY call get_stock_price với symbol và date range
-3. IF query mentions technical indicators (RSI, SMA, MACD, etc.) → MANDATORY call calculate_technical_indicators
-4. For comprehensive analysis, ALSO call calculate_technical_indicators để có đầy đủ insights
-5. Analyze REAL DATA từ tool results
-6. Combine price data + technical indicators để tạo comprehensive analysis
-7. Provide detailed insights và recommendations dựa trên ACTUAL DATA
+2. MANDATORY STEP 1: call get_stock_price với symbol và date range → Lấy dữ liệu 10 ngày gần nhất
+3. MANDATORY STEP 2: call calculate_technical_indicators với cùng symbol → Lấy RSI, SMA, MACD, Bollinger Bands
+4. ANALYZE & SYNTHESIZE: Kết hợp kết quả từ cả hai tools
+5. COMPREHENSIVE INSIGHTS: Phân tích price trends + technical signals + recommendations  
+6. SPECIFIC REFERENCES: Đề cập cụ thể đến từng chỉ số TA trong analysis
 
-🚀 BẮT ĐẦU EXECUTION - CALL ALL RELEVANT TOOLS NGAY BÂY GIỜ!
+🔥 LUÔN LUÔN GỌI CẢ HAI TOOLS:
+- get_stock_price → Stock price data + 10 recent days
+- calculate_technical_indicators → RSI, SMA, MACD, Bollinger Bands
+
+📊 MANDATORY OUTPUT INCLUSION:
+- Copy bảng "Recent 10 Trading Days" từ get_stock_price output
+- Copy bảng "Recent 5 Days Technical Indicators" từ calculate_technical_indicators output
+- Copy "Latest Technical Indicators" với tất cả số liệu (Price, SMA, RSI, MACD)
+- Show performance metrics nếu có
+
+📝 REQUIRED RESPONSE FORMAT:
+```
+## 📊 STOCK PRICE DATA
+[Copy nguyên văn bảng Recent 10 Trading Days từ get_stock_price]
+
+## 📈 TECHNICAL ANALYSIS  
+[Copy nguyên văn Latest Technical Indicators + Recent 5 Days Technical Indicators từ calculate_technical_indicators]
+
+## 💡 ANALYSIS & INSIGHTS
+[Phân tích dựa trên dữ liệu cụ thể trên]
+```
+
+🚀 BẮT ĐẦU EXECUTION - CALL BOTH TOOLS VÀ INCLUDE FULL DATA THEO FORMAT!
 """
         
         try:
