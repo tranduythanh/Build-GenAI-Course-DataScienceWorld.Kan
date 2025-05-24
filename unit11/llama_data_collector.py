@@ -7,9 +7,8 @@ from logger import api_logger
 from config import DATA_COLLECTION_CONFIG
 
 class DataCollector(StockDataCollector):
-    def __init__(self, api_key: str):
+    def __init__(self):
         super().__init__()
-        self.api_key = api_key
         self.cache_dir = Path(DATA_COLLECTION_CONFIG["cache_dir"])
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.max_retries = DATA_COLLECTION_CONFIG["max_retries"]
@@ -111,3 +110,15 @@ class DataCollector(StockDataCollector):
         else:
             for cache_file in self.cache_dir.glob("*.csv"):
                 cache_file.unlink() 
+
+
+if __name__ == "__main__":
+    collector = DataCollector()
+    print("\n\n\nget_stock_data")
+    print(collector.get_stock_data("HAG", "2024-01-01", "2024-01-01"))
+    print("\n\n\nget_company_info")
+    print(collector.get_company_info("HAG"))
+    print("\n\n\nget_market_index")
+    print(collector.get_market_index("VNINDEX", "2024-01-01", "2024-01-01"))
+    print("\n\n\nclear_cache")
+    print(collector.clear_cache(days=1))
