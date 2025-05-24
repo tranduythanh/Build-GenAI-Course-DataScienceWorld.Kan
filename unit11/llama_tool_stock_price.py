@@ -14,11 +14,36 @@ class StockPriceTool(BaseTool):
     def metadata(self) -> ToolMetadata:
         return ToolMetadata(
             name="get_stock_price",
-            description="Get stock price data for a given symbol. Provide the stock ticker symbol (e.g., 'HAG'). Optional: start_date and end_date in YYYY-MM-DD format (defaults to 2023-01-01 to today)."
+            description="""Get stock price data for a given symbol. 
+            
+            Parameters:
+            - symbol (required): Stock ticker symbol (e.g., 'HAG', 'VIC', 'VNINDEX')
+            - start_date (optional): Start date in YYYY-MM-DD format (default: 2023-01-01)
+            - end_date (optional): End date in YYYY-MM-DD format (default: today)
+            
+            Examples:
+            - "HAG" - Get HAG stock data from 2023-01-01 to today
+            - {"symbol": "VIC", "start_date": "2023-06-01", "end_date": "2023-12-31"}
+            - {"symbol": "VNINDEX", "start_date": "2024-01-01"} - end_date defaults to today"""
         )
     
-    def __call__(self, input) -> ToolOutput:
-        """Get stock price data for a given symbol and date range"""
+    def __call__(self, input: str) -> ToolOutput:
+        """Get stock price data for a given symbol and date range
+        
+        Args:
+            input: Can be one of the following formats:
+                - String: Just the symbol (e.g., "HAG", "VIC", "VNINDEX")
+                - Dict with direct parameters: {"symbol": "HAG", "start_date": "2023-01-01", "end_date": "2024-01-01"}
+                - Dict with wrapped input: {"input": "HAG", "start_date": "2023-01-01", "end_date": "2024-01-01"}
+        
+        Examples:
+            tool("HAG")  # Get HAG data from 2023-01-01 to today
+            tool({"symbol": "VIC", "start_date": "2023-06-01", "end_date": "2023-12-31"})
+            tool({"input": "VNINDEX", "start_date": "2024-01-01"})  # end_date defaults to today
+            
+        Returns:
+            ToolOutput with stock price data in raw_output as list of records
+        """
         try:
             # Normalize input to always be a dictionary for raw_input
             if isinstance(input, str):
@@ -108,10 +133,51 @@ if __name__ == "__main__":
     tool = StockPriceTool()
     print("\n\n\nmetadata")
     print(tool.metadata)
-    print("\n\n\nHAG")
+    
+    # Ví dụ 1: Chỉ symbol (sử dụng default date range)
+    print("\n\n\n=== Ví dụ 1: Chỉ symbol (HAG) ===")
     print(tool("HAG"))
-    print("\n\n\nVIC")
+    
+    print("\n\n\n=== Ví dụ 2: Chỉ symbol (VIC) ===")
     print(tool("VIC"))
-    print("\n\n\nVNINDEX")
+    
+    print("\n\n\n=== Ví dụ 3: Chỉ symbol (VNINDEX) ===")
     print(tool("VNINDEX"))
+    
+    # Ví dụ 4: Dictionary format với đầy đủ tham số
+    print("\n\n\n=== Ví dụ 4: Dictionary format với đầy đủ tham số ===")
+    print(tool({
+        "symbol": "FPT", 
+        "start_date": "2024-01-01", 
+        "end_date": "2024-06-30"
+    }))
+    
+    # Ví dụ 5: Dictionary format với chỉ start_date
+    print("\n\n\n=== Ví dụ 5: Dictionary format với chỉ start_date ===")
+    print(tool({
+        "symbol": "MSN", 
+        "start_date": "2024-06-01"
+    }))
+    
+    # Ví dụ 6: Wrapped input format (như từ LlamaIndex agent)
+    print("\n\n\n=== Ví dụ 6: Wrapped input format ===")
+    print(tool({
+        "input": "TCB",
+        "start_date": "2024-01-01",
+        "end_date": "2024-03-31"
+    }))
+    
+    # Ví dụ 7: Wrapped input format chỉ với symbol
+    print("\n\n\n=== Ví dụ 7: Wrapped input format chỉ với symbol ===")
+    print(tool({
+        "input": "BID"
+    }))
+    
+    # Ví dụ 8: Test với symbol khác
+    print("\n\n\n=== Ví dụ 8: Symbol khác (CTG) ===")
+    print(tool({
+        "symbol": "CTG",
+        "start_date": "2023-12-01",
+        "end_date": "2023-12-31"
+    }))
     
