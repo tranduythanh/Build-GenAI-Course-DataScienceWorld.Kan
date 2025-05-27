@@ -1,3 +1,10 @@
+import re
+
+# Regular expression patterns for parsing LLM responses
+entity_pattern = r'\("entity"\$\$\$\$"(.+?)"\$\$\$\$"(.+?)"\$\$\$\$"(.+?)"\)'
+relationship_pattern = r'\("relationship"\$\$\$\$"(.+?)"\$\$\$\$"(.+?)"\$\$\$\$"(.+?)"\$\$\$\$"(.+?)"\)'
+
+# Knowledge Graph extraction template
 KG_TRIPLET_EXTRACT_TMPL = """
 -Goal-
 Given a text document, identify all entities and their entity types from the text and all relationships among the identified entities.
@@ -27,9 +34,25 @@ text: {text}
 ######################
 output:"""
 
-entity_pattern = r'\("entity"\$\$\$\$"(.+?)"\$\$\$\$"(.+?)"\$\$\$\$"(.+?)"\)'
-relationship_pattern = r'\("relationship"\$\$\$\$"(.+?)"\$\$\$\$"(.+?)"\$\$\$\$"(.+?)"\$\$\$\$"(.+?)"\)'
+# Neo4J Database Configuration
+NEO4J_URI = "neo4j+s://6b70473e.databases.neo4j.io"
+NEO4J_USERNAME = "neo4j"
+NEO4J_PASSWORD = "fPpNzCHUnmtxRSjpLJRzeufhFjb5xNpTG4JdSfRgd9M"
 
-NEO4J_URI="neo4j+s://6b70473e.databases.neo4j.io"
-NEO4J_USERNAME="neo4j"
-NEO4J_PASSWORD="fPpNzCHUnmtxRSjpLJRzeufhFjb5xNpTG4JdSfRgd9M"
+# API Configuration
+TOGETHER_API_KEY = "524a0fda9f6199191bb6252d8c9d0f07edfb630ecaf91a2dbe76c95de4749d15"
+
+# Model Configuration
+DEFAULT_MODEL = "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8"
+EMBEDDING_MODEL = "BAAI/bge-small-en-v1.5"
+
+# Data Configuration
+DATA_URL = "https://raw.githubusercontent.com/tomasonjo/blog-datasets/main/news_articles.csv"
+DEFAULT_CHUNK_SIZE = 1024
+DEFAULT_CHUNK_OVERLAP = 20
+DEFAULT_MAX_PATHS_PER_CHUNK = 2
+DEFAULT_SIMILARITY_TOP_K = 10
+
+# GraphRAG Configuration
+DEFAULT_MAX_CLUSTER_SIZE = 5
+DEFAULT_NUM_WORKERS = 4

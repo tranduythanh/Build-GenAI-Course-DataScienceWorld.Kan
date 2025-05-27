@@ -1,3 +1,8 @@
+import re
+import networkx as nx
+from graspologic.partition import hierarchical_leiden
+from collections import defaultdict
+
 from llama_index.graph_stores.neo4j import Neo4jPropertyGraphStore
 from llama_index.core.llms import ChatMessage
 from llama_index.core.llms.llm import LLM
@@ -8,9 +13,16 @@ from llama_index.core.prompts.default_prompts import (
 from llama_index.core.schema import TransformComponent, BaseNode
 
 class GraphRAGStore(Neo4jPropertyGraphStore):
-    community_summary = {}
-    entity_info = None
-    max_cluster_size = 5
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.community_summary = {}
+        self.entity_info = None
+        self.max_cluster_size = 5
+        self.llm = None  # Will be set externally
+
+    def set_llm(self, llm):
+        """Set the LLM for community summary generation."""
+        self.llm = llm
 
     def generate_community_summary(self, text):
         """Generate summary for a given text using an LLM."""
@@ -28,7 +40,7 @@ class GraphRAGStore(Neo4jPropertyGraphStore):
             ),
             ChatMessage(role="user", content=text),
         ]
-        response = llm.chat(messages)
+        response = self.llm.chat(messages)
         clean_response = re.sub(r"^assistant:\s*", "", str(response)).strip()
         return clean_response
 

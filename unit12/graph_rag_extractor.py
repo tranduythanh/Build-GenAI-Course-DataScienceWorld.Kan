@@ -1,4 +1,7 @@
 import asyncio
+import nest_asyncio
+
+nest_asyncio.apply()
 
 from llama_index.core import Settings
 from typing import Any, List, Callable, Optional, Union, Dict
