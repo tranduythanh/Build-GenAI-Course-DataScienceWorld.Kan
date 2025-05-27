@@ -1,4 +1,13 @@
 import re
+import os
+from typing import Optional
+
+def get_env_var(key: str, default: Optional[str] = None) -> str:
+    """Get environment variable with optional default value."""
+    value = os.getenv(key, default)
+    if value is None:
+        raise ValueError(f"Environment variable {key} is required but not set")
+    return value
 
 # Regular expression patterns for parsing LLM responses
 entity_pattern = r'\("entity"\$\$\$\$"(.+?)"\$\$\$\$"(.+?)"\$\$\$\$"(.+?)"\)'
@@ -34,13 +43,13 @@ text: {text}
 ######################
 output:"""
 
-# Neo4J Database Configuration
-NEO4J_URI = "neo4j+s://6b70473e.databases.neo4j.io"
-NEO4J_USERNAME = "neo4j"
-NEO4J_PASSWORD = "fPpNzCHUnmtxRSjpLJRzeufhFjb5xNpTG4JdSfRgd9M"
+# Neo4J Database Configuration (Local Docker)
+NEO4J_URI = get_env_var("NEO4J_URI", "bolt://localhost:7687")
+NEO4J_USERNAME = get_env_var("NEO4J_USERNAME", "neo4j")
+NEO4J_PASSWORD = get_env_var("NEO4J_PASSWORD", "password")
 
 # API Configuration
-TOGETHER_API_KEY = "524a0fda9f6199191bb6252d8c9d0f07edfb630ecaf91a2dbe76c95de4749d15"
+TOGETHER_API_KEY = get_env_var("TOGETHER_API_KEY", "524a0fda9f6199191bb6252d8c9d0f07edfb630ecaf91a2dbe76c95de4749d15")
 
 # Model Configuration
 DEFAULT_MODEL = "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8"
