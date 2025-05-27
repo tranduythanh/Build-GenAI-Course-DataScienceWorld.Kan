@@ -330,8 +330,10 @@ def create_communities_graph(graph_store):
         # Create figure
         fig = go.Figure(data=traces,
                        layout=go.Layout(
-                           title=f'Community Structure ({len(community_colors)} communities)',
-                           titlefont_size=16,
+                           title=dict(
+                               text=f'Community Structure ({len(community_colors)} communities)',
+                               font=dict(size=16)
+                           ),
                            showlegend=True,
                            hovermode='closest',
                            margin=dict(b=20,l=5,r=5,t=40),
