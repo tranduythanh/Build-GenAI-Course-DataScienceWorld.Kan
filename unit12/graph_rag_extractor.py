@@ -1,15 +1,14 @@
 import asyncio
+import csv
+import os
 import nest_asyncio
+from io import StringIO
+from typing import Any, List, Callable, Optional, Union
 
 nest_asyncio.apply()
 
 from llama_index.core import Settings
-from typing import Any, List, Callable, Optional, Union, Dict
-
 from llama_index.core.async_utils import run_jobs
-from llama_index.core.indices.property_graph.utils import (
-    default_parse_triplets_fn,
-)
 from llama_index.core.graph_stores.types import (
     EntityNode,
     KG_NODES_KEY,
@@ -21,7 +20,90 @@ from llama_index.core.prompts import PromptTemplate
 from llama_index.core.prompts.default_prompts import (
     DEFAULT_KG_TRIPLET_EXTRACT_PROMPT,
 )
-from llama_index.core.schema import TransformComponent, BaseNode
+from llama_index.core.schema import TransformComponent, BaseNode, TextNode
+from llama_index.llms.openai import OpenAI
+from const import (
+    OPENAI_API_KEY, 
+    DEFAULT_MODEL, 
+    CSV_KG_EXTRACT_TMPL,
+    DEFAULT_MAX_PATHS_PER_CHUNK
+)
+
+def parse_csv_section(lines, section_type):
+    """Parse CSV lines for either entities or relationships."""
+    results = []
+    for line in lines:
+        if not line or line.startswith('#') or 'entity,name,type' in line or 'relationship,source,target' in line:
+            continue
+            
+        try:
+            # Use CSV reader to properly handle quoted fields
+            csv_reader = csv.reader(StringIO(line))
+            row = next(csv_reader)
+            
+            if len(row) >= 4 and row[0].lower() == section_type:
+                if section_type == "entity":
+                    # Format: entity,name,type,description
+                    results.append((row[1].strip(), row[2].strip(), row[3].strip()))
+                elif section_type == "relationship":
+                    # Format: relationship,source,target,relation,description
+                    if len(row) >= 5:
+                        results.append((row[1].strip(), row[2].strip(), row[3].strip(), row[4].strip()))
+                    
+        except Exception as e:
+            print(f"Error parsing CSV line '{line}': {e}")
+            continue
+            
+    return results
+
+
+
+def parse_csv_triplets_fn(response_str: str):
+    """Parse function for extracting entities and relationships from CSV format."""
+    
+    
+    entities = []
+    relationships = []
+    
+    try:
+        # Split response into entities and relationships sections
+        lines = response_str.strip().split('\n')
+        
+        current_section = None
+        entity_lines = []
+        relationship_lines = []
+        
+        for line in lines:
+            line = line.strip()
+            if not line or line.startswith('#') or line.startswith('```'):
+                continue
+                
+            if line.upper() == "ENTITIES:" or "ENTITIES" in line.upper():
+                current_section = "entities"
+                continue
+            elif line.upper() == "RELATIONSHIPS:" or "RELATIONSHIPS" in line.upper():
+                current_section = "relationships"
+                continue
+            elif line.startswith('entity,name,type') or line.startswith('relationship,source,target'):
+                # Skip header lines
+                continue
+            elif current_section == "entities" and line.startswith('entity,'):
+                entity_lines.append(line)
+            elif current_section == "relationships" and line.startswith('relationship,'):
+                relationship_lines.append(line)
+        
+        # Process entities and relationships
+        entities = parse_csv_section(entity_lines, "entity")
+        relationships = parse_csv_section(relationship_lines, "relationship")
+        
+        print(f"✓ Successfully parsed {len(entities)} entities and {len(relationships)} relationships")
+        
+    except Exception as e:
+        print(f"CSV Parse error: {e}")
+        
+    return entities, relationships
+
+
 
 class GraphRAGExtractor(TransformComponent):
     """Extract triples from a graph.
@@ -51,7 +133,7 @@ class GraphRAGExtractor(TransformComponent):
         self,
         llm: Optional[LLM] = None,
         extract_prompt: Optional[Union[str, PromptTemplate]] = None,
-        parse_fn: Callable = default_parse_triplets_fn,
+        parse_fn: Callable = parse_csv_triplets_fn,
         max_paths_per_chunk: int = 10,
         num_workers: int = 4,
     ) -> None:
@@ -149,122 +231,6 @@ class GraphRAGExtractor(TransformComponent):
         )
     
 if __name__ == "__main__":
-    import os
-    import re
-    from llama_index.core.schema import BaseNode, TextNode
-    from llama_index.llms.openai import OpenAI
-    from llama_index.core import Settings
-    from const import (
-        OPENAI_API_KEY, 
-        DEFAULT_MODEL, 
-        DEFAULT_MAX_PATHS_PER_CHUNK
-    )
-    
-    # CSV-based extraction prompt template
-    CSV_KG_EXTRACT_TMPL = """
--Goal-
-Given a text document, identify all entities and their entity types from the text and all relationships among the identified entities.
-Extract up to {max_knowledge_triplets} entity-relation triplets.
-
--Steps-
-1. Identify all entities and format them as CSV rows with: entity,name,type,description
-2. Identify all relationships and format them as CSV rows with: relationship,source,target,relation,description
-
--Output Format-
-Use CSV format with the following structure:
-
-ENTITIES:
-entity,name,type,description
-entity,Apple Inc,Organization,Apple Inc. is a technology company...
-entity,Steve Jobs,Person,Steve Jobs was the co-founder...
-
-RELATIONSHIPS:
-relationship,source,target,relation,description
-relationship,Apple Inc,Steve Jobs,founded_by,Steve Jobs co-founded Apple Inc...
-
--Real Data-
-######################
-text: {text}
-######################
-output:"""
-
-    # Parse function for extracting entities and relationships from CSV format
-    def parse_fn(response_str: str):
-        """Parse function for extracting entities and relationships from CSV format."""
-        import csv
-        from io import StringIO
-        
-        entities = []
-        relationships = []
-        
-        try:
-            # Split response into entities and relationships sections
-            lines = response_str.strip().split('\n')
-            
-            current_section = None
-            entity_lines = []
-            relationship_lines = []
-            
-            for line in lines:
-                line = line.strip()
-                if not line or line.startswith('#') or line.startswith('```'):
-                    continue
-                    
-                if line.upper() == "ENTITIES:" or "ENTITIES" in line.upper():
-                    current_section = "entities"
-                    continue
-                elif line.upper() == "RELATIONSHIPS:" or "RELATIONSHIPS" in line.upper():
-                    current_section = "relationships"
-                    continue
-                elif line.startswith('entity,name,type') or line.startswith('relationship,source,target'):
-                    # Skip header lines
-                    continue
-                elif current_section == "entities" and line.startswith('entity,'):
-                    entity_lines.append(line)
-                elif current_section == "relationships" and line.startswith('relationship,'):
-                    relationship_lines.append(line)
-            
-            # Process entities and relationships
-            entities = parse_csv_section(entity_lines, "entity")
-            relationships = parse_csv_section(relationship_lines, "relationship")
-            
-            print(f"✓ Successfully parsed {len(entities)} entities and {len(relationships)} relationships")
-            
-        except Exception as e:
-            print(f"CSV Parse error: {e}")
-            
-        return entities, relationships
-
-    def parse_csv_section(lines, section_type):
-        """Parse CSV lines for either entities or relationships."""
-        import csv
-        from io import StringIO
-        
-        results = []
-        for line in lines:
-            if not line or line.startswith('#') or 'entity,name,type' in line or 'relationship,source,target' in line:
-                continue
-                
-            try:
-                # Use CSV reader to properly handle quoted fields
-                csv_reader = csv.reader(StringIO(line))
-                row = next(csv_reader)
-                
-                if len(row) >= 4 and row[0].lower() == section_type:
-                    if section_type == "entity":
-                        # Format: entity,name,type,description
-                        results.append((row[1].strip(), row[2].strip(), row[3].strip()))
-                    elif section_type == "relationship":
-                        # Format: relationship,source,target,relation,description
-                        if len(row) >= 5:
-                            results.append((row[1].strip(), row[2].strip(), row[3].strip(), row[4].strip()))
-                        
-            except Exception as e:
-                print(f"Error parsing CSV line '{line}': {e}")
-                continue
-                
-        return results
-    
     # Setup OpenAI LLM
     print("Setting up OpenAI LLM...")
     os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
@@ -300,7 +266,6 @@ output:"""
             llm=llm,
             extract_prompt=CSV_KG_EXTRACT_TMPL,
             max_paths_per_chunk=DEFAULT_MAX_PATHS_PER_CHUNK,
-            parse_fn=parse_fn,
             num_workers=2
         )
         

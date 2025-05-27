@@ -9,22 +9,18 @@ def get_env_var(key: str, default: Optional[str] = None) -> str:
         raise ValueError(f"Environment variable {key} is required but not set")
     return value
 
-# Regular expression patterns for parsing LLM responses
-entity_pattern = r'\("entity"\$\$\$\$"(.+?)"\$\$\$\$"(.+?)"\$\$\$\$"(.+?)"\)'
-relationship_pattern = r'\("relationship"\$\$\$\$"(.+?)"\$\$\$\$"(.+?)"\$\$\$\$"(.+?)"\$\$\$\$"(.+?)"\)'
-
-# Knowledge Graph extraction template
-KG_TRIPLET_EXTRACT_TMPL = """
+# CSV-based extraction prompt template
+CSV_KG_EXTRACT_TMPL = """
 -Goal-
 Given a text document, identify all entities and their entity types from the text and all relationships among the identified entities.
-Given the text, extract up to {max_knowledge_triplets} entity-relation triplets.
+Extract up to {max_knowledge_triplets} entity-relation triplets.
 
 -Steps-
 1. Identify all entities. For each identified entity, extract the following information:
 - entity_name: Name of the entity, capitalized
-- entity_type: Type of the entity.
+- entity_type: Type of the entity (e.g., Person, Organization, Location, Concept, Event, etc.)
 - entity_description: Comprehensive description of the entity's attributes and activities
-Format each entity as ("entity"$$$$<entity_name>$$$$<entity_type>$$$$<entity_description>)
+Format each entity as a CSV row: entity,<entity_name>,<entity_type>,<entity_description>
 
 2. From the entities identified in step 1, identify all pairs of (source_entity, target_entity) that are *clearly related* to each other.
 For each pair of related entities, extract the following information:
@@ -32,16 +28,29 @@ For each pair of related entities, extract the following information:
 - target_entity: name of the target entity, as identified in step 1
 - relation: relationship between source_entity and target_entity
 - relationship_description: explanation as to why you think the source entity and the target entity are related to each other
+Format each relationship as a CSV row: relationship,<source_entity>,<target_entity>,<relation>,<relationship_description>
 
-Format each relationship as ("relationship"$$$$<source_entity>$$$$<target_entity>$$$$<relation>$$$$<relationship_description>)
+3. When finished, output in the specified CSV format below.
 
-3. When finished, output.
+-Output Format-
+Use CSV format with the following structure:
+
+ENTITIES:
+entity,name,type,description
+entity,Apple Inc,Organization,Apple Inc. is a technology company that designs and develops consumer electronics and software
+entity,Steve Jobs,Person,Steve Jobs was the co-founder and former CEO of Apple Inc.
+
+RELATIONSHIPS:
+relationship,source,target,relation,description
+relationship,Apple Inc,Steve Jobs,founded_by,Steve Jobs co-founded Apple Inc. and served as its visionary leader
 
 -Real Data-
 ######################
 text: {text}
 ######################
 output:"""
+
+
 
 # Neo4J Database Configuration (Local Docker)
 NEO4J_URI = get_env_var("NEO4J_URI", "bolt://localhost:7687")
