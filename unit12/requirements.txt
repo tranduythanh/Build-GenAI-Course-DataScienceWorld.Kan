@@ -19,6 +19,7 @@ nest-asyncio
 
 # Web interface
 streamlit
+plotly>=5.0.0
 
 # HTML to Markdown conversion
 beautifulsoup4==4.12.2

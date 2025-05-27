@@ -2,8 +2,6 @@
 
 import streamlit as st
 import traceback
-import os
-import pickle
 import pandas as pd
 
 # Local imports
@@ -16,43 +14,11 @@ from utils import (
     setup_llm,
     setup_graph_store,
     setup_query_engine,
-    analyze_graph
+    load_index_data,
+    check_neo4j_connection,
+    create_triplets_graph,
+    create_communities_graph
 )
-
-
-def load_index_data(data_dir="./index_data"):
-    """Load pre-built index data from disk."""
-    try:
-        metadata_path = os.path.join(data_dir, 'index_metadata.pkl')
-        files_df_path = os.path.join(data_dir, 'files_df.pkl')
-        
-        if not os.path.exists(metadata_path):
-            return None, None
-        
-        # Load metadata
-        with open(metadata_path, 'rb') as f:
-            metadata = pickle.load(f)
-        
-        # Load files dataframe if exists
-        files_df = None
-        if os.path.exists(files_df_path):
-            files_df = pd.read_pickle(files_df_path)
-        
-        return metadata, files_df
-        
-    except Exception as e:
-        st.error(f"Error loading index data: {e}")
-        return None, None
-
-
-def check_neo4j_connection(graph_store):
-    """Check if Neo4j has data and is accessible."""
-    try:
-        triplets = graph_store.get_triplets()
-        return len(triplets) > 0, len(triplets)
-    except Exception as e:
-        st.error(f"Neo4j connection error: {e}")
-        return False, 0
 
 
 def main():
@@ -157,7 +123,7 @@ def main():
                 return
     
     # Main content area
-    tab1, tab2, tab3 = st.tabs(["🔍 Query Interface", "📊 Graph Analysis", "📄 Data Info"])
+    tab1, tab2 = st.tabs(["🔍 Query Interface", "📊 Graph Analysis"])
     
     with tab1:
         st.header("Ask Questions About Your Knowledge Graph")
@@ -213,39 +179,144 @@ def main():
     with tab2:
         st.header("Graph Analysis")
         
-        if st.session_state.index_loaded and 'index' in st.session_state:
-            # Analyze graph
-            triplets = analyze_graph(st.session_state.index)
-            
-            # Show community information if available
-            if hasattr(st.session_state.graph_store, 'get_community_summaries'):
-                try:
-                    communities = st.session_state.graph_store.get_community_summaries()
-                    if communities:
-                        st.subheader("🏘️ Community Summaries")
-                        for i, (community_id, summary) in enumerate(communities.items()):
-                            if i < 5:  # Show first 5 communities
-                                with st.expander(f"Community {community_id}"):
-                                    st.write(summary)
-                except Exception as e:
-                    st.warning(f"Could not load community summaries: {e}")
+        if st.session_state.index_loaded and st.session_state.graph_store:
+            # Get all triplets from the graph store
+            try:
+                with st.spinner("Loading all triplets from Neo4j..."):
+                    triplets = st.session_state.graph_store.get_triplets()
+                
+                st.success(f"✅ Loaded {len(triplets)} triplets from the knowledge graph")
+                
+                # Display triplets in a table format
+                if triplets:
+                    st.subheader("🔺 All Knowledge Graph Triplets")
+                    
+                    # Create a DataFrame for better display
+                    triplet_data = []
+                    for i, (entity1, relation, entity2) in enumerate(triplets):
+                        triplet_data.append({
+                            "ID": i + 1,
+                            "Subject": entity1.name if hasattr(entity1, 'name') else str(entity1),
+                            "Predicate": relation.label if hasattr(relation, 'label') else str(relation),
+                            "Object": entity2.name if hasattr(entity2, 'name') else str(entity2),
+                            "Relation Description": relation.properties.get('relationship_description', 'N/A') if hasattr(relation, 'properties') else 'N/A'
+                        })
+                    
+                    triplets_df = pd.DataFrame(triplet_data)
+                    
+                    # Display the dataframe with search functionality
+                    st.dataframe(
+                        triplets_df,
+                        use_container_width=True,
+                        height=400
+                    )
+                    
+                    # Show some statistics
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("Total Triplets", len(triplets))
+                    with col2:
+                        unique_entities = set()
+                        for entity1, relation, entity2 in triplets:
+                            unique_entities.add(entity1.name if hasattr(entity1, 'name') else str(entity1))
+                            unique_entities.add(entity2.name if hasattr(entity2, 'name') else str(entity2))
+                        st.metric("Unique Entities", len(unique_entities))
+                    with col3:
+                        unique_relations = set()
+                        for entity1, relation, entity2 in triplets:
+                            unique_relations.add(relation.label if hasattr(relation, 'label') else str(relation))
+                        st.metric("Unique Relations", len(unique_relations))
+                    
+                    # Export functionality
+                    st.subheader("📥 Export Data")
+                    if st.button("📄 Download Triplets as CSV"):
+                        csv = triplets_df.to_csv(index=False)
+                        st.download_button(
+                            label="Download CSV",
+                            data=csv,
+                            file_name="knowledge_graph_triplets.csv",
+                            mime="text/csv"
+                        )
+                    
+                    # Graph Visualizations
+                    st.divider()
+                    st.subheader("🌐 Graph Visualizations")
+                    
+                    # Create tabs for different visualizations
+                    viz_tab1, viz_tab2 = st.tabs(["🔺 Triplets Graph", "🏘️ Communities Graph"])
+                    
+                    with viz_tab1:
+                        st.write("**Interactive Knowledge Graph Visualization**")
+                        
+                        # Add controls for triplets graph
+                        col1, col2 = st.columns([3, 1])
+                        with col2:
+                            max_nodes = st.slider(
+                                "Max nodes to display", 
+                                min_value=10, 
+                                max_value=min(100, len(triplets)), 
+                                value=min(50, len(triplets)),
+                                help="Limit nodes for better performance"
+                            )
+                        
+                        with st.spinner("Creating triplets graph..."):
+                            triplets_fig = create_triplets_graph(triplets, max_nodes)
+                            if triplets_fig:
+                                st.plotly_chart(triplets_fig, use_container_width=True)
+                            else:
+                                st.error("Could not create triplets graph")
+                    
+                    with viz_tab2:
+                        st.write("**Community Structure Visualization**")
+                        
+                        with st.spinner("Creating communities graph..."):
+                            communities_fig = create_communities_graph(st.session_state.graph_store)
+                            if communities_fig:
+                                st.plotly_chart(communities_fig, use_container_width=True)
+                                
+                                # Show community details
+                                try:
+                                    communities = st.session_state.graph_store.get_community_summaries()
+                                    if communities:
+                                        st.subheader("📋 Community Details")
+                                        for community_id, summary in communities.items():
+                                            with st.expander(f"Community {community_id} - Summary"):
+                                                st.write(summary)
+                                except Exception as e:
+                                    st.warning(f"Could not load community details: {e}")
+                            else:
+                                st.warning("Could not create communities graph. Communities may not be built yet.")
+                                if st.button("🔨 Build Communities"):
+                                    with st.spinner("Building communities..."):
+                                        try:
+                                            st.session_state.graph_store.build_communities()
+                                            st.success("Communities built successfully! Refresh to see the graph.")
+                                            st.rerun()
+                                        except Exception as e:
+                                            st.error(f"Error building communities: {e}")
+                
+                else:
+                    st.warning("No triplets found in the knowledge graph.")
+                
+                # Show community information if available (legacy section)
+                st.divider()
+                if hasattr(st.session_state.graph_store, 'get_community_summaries'):
+                    try:
+                        communities = st.session_state.graph_store.get_community_summaries()
+                        if communities:
+                            st.subheader("🏘️ Community Summaries")
+                            for i, (community_id, summary) in enumerate(communities.items()):
+                                if i < 5:  # Show first 5 communities
+                                    with st.expander(f"Community {community_id}"):
+                                        st.write(summary)
+                    except Exception as e:
+                        st.warning(f"Could not load community summaries: {e}")
+                        
+            except Exception as e:
+                st.error(f"Error loading triplets: {e}")
+                st.error(traceback.format_exc())
         else:
             st.warning("⚠️ Graph analysis not available. Please check the setup.")
-    
-    with tab3:
-        st.header("Data Information")
-        
-        # Show files information if available
-        if files_df is not None and not files_df.empty:
-            st.subheader("📄 Processed Files")
-            st.dataframe(files_df, use_container_width=True)
-        else:
-            st.info("No file information available")
-        
-        # Show index metadata
-        if metadata:
-            st.subheader("🔧 Index Metadata")
-            st.json(metadata)
     
     # Footer
     st.divider()

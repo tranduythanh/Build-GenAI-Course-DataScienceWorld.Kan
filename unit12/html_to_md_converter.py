@@ -6,10 +6,8 @@ Specifically designed to handle blog posts and academic content.
 """
 
 import re
-import os
 from pathlib import Path
-from bs4 import BeautifulSoup, NavigableString
-from markdownify import markdownify as md
+from bs4 import BeautifulSoup
 import html2text
 
 

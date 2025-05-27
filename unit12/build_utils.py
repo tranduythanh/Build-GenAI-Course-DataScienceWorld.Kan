@@ -7,7 +7,6 @@ These functions are only used by build_index.py.
 import os
 import glob
 import pandas as pd
-from typing import Any
 
 # Local imports
 from const import (
