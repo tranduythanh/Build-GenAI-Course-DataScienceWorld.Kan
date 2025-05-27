@@ -195,6 +195,30 @@ streamlit run app.py
 
 Ứng dụng sẽ mở tại `http://localhost:8501`
 
+## 💬 Example Queries
+
+Sau khi build index thành công, bạn có thể thử các câu hỏi mẫu sau:
+
+### 🎯 Recommended Queries:
+
+1. **"What are the main components of LLM-powered autonomous agents?"**
+   - Tìm hiểu về các thành phần chính của LLM agents
+   - Kết quả: Planning, Memory, Tool use, Action
+
+2. **"How does planning work in LLM agents?"**
+   - Khám phá cơ chế planning trong LLM agents
+   - Kết quả: Task decomposition, subgoal generation, reflection
+
+3. **"What are the different types of memory in agent systems?"**
+   - Tìm hiểu về các loại memory trong hệ thống agent
+   - Kết quả: Sensory memory, short-term memory, long-term memory
+
+### 💡 Tips for Better Queries:
+- Sử dụng câu hỏi cụ thể và rõ ràng
+- Tập trung vào các khái niệm chính trong tài liệu
+- Có thể hỏi về relationships giữa các concepts
+- Thử các câu hỏi "How", "What", "Why" để có câu trả lời chi tiết
+
 ## 🎛️ Cấu hình tối ưu (Đã cập nhật)
 
 ### Environment Variables

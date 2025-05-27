@@ -66,9 +66,9 @@ EMBEDDING_MODEL = "BAAI/bge-small-en-v1.5"
 # Data Configuration
 DATA_URL = "https://raw.githubusercontent.com/tomasonjo/blog-datasets/main/news_articles.csv"
 # Optimized for GPT-4o-mini (128K context window) and markdown content
-DEFAULT_CHUNK_SIZE = 500
-DEFAULT_CHUNK_OVERLAP = 20
-DEFAULT_MAX_PATHS_PER_CHUNK = 2
+DEFAULT_CHUNK_SIZE = 2048
+DEFAULT_CHUNK_OVERLAP = 200
+DEFAULT_MAX_PATHS_PER_CHUNK = 10
 DEFAULT_SIMILARITY_TOP_K = 10
 
 # GraphRAG Configuration

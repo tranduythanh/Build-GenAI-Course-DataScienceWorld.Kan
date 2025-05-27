@@ -34,7 +34,7 @@ def main():
     st.markdown("Query your pre-built knowledge graph using natural language")
     
     # Check if index has been built
-    metadata, files_df = load_index_data()
+    metadata, files_df, nodes = load_index_data()
     
     if metadata is None:
         st.error("❌ No pre-built index found!")
@@ -59,6 +59,7 @@ def main():
     st.sidebar.write(f"**Built:** {metadata.get('timestamp', 'Unknown')}")
     st.sidebar.write(f"**Files processed:** {metadata.get('files_processed', 'Unknown')}")
     st.sidebar.write(f"**Index type:** {metadata.get('index_type', 'Unknown')}")
+    st.sidebar.write(f"**Nodes (chunks):** {metadata.get('nodes_count', 'Unknown')}")
     
     # Query configuration
     st.sidebar.header("⚙️ Query Settings")
@@ -69,6 +70,8 @@ def main():
         st.session_state.query_engine = None
     if 'graph_store' not in st.session_state:
         st.session_state.graph_store = None
+    if 'nodes' not in st.session_state:
+        st.session_state.nodes = None
     if 'index_loaded' not in st.session_state:
         st.session_state.index_loaded = False
     
@@ -104,7 +107,7 @@ def main():
                 )
                 
                 # Setup query engine
-                query_engine = setup_query_engine(index, llm, similarity_top_k)
+                query_engine = setup_query_engine(index, llm, similarity_top_k, nodes)
                 if not query_engine:
                     st.error("Failed to setup query engine")
                     return
@@ -113,6 +116,7 @@ def main():
                 st.session_state.query_engine = query_engine
                 st.session_state.graph_store = graph_store
                 st.session_state.index = index
+                st.session_state.nodes = nodes
                 st.session_state.index_loaded = True
                 
                 st.success("✅ Query interface ready!")
@@ -126,53 +130,221 @@ def main():
     tab1, tab2 = st.tabs(["🔍 Query Interface", "📊 Graph Analysis"])
     
     with tab1:
-        st.header("Ask Questions About Your Knowledge Graph")
+        st.header("💬 Query Your Knowledge Graph")
         
         if st.session_state.index_loaded and st.session_state.query_engine:
-            # Predefined queries
-            st.subheader("🎯 Quick Queries")
-            predefined_queries = [
-                "What are the main components of LLM-powered autonomous agents?",
-                "How does planning work in LLM agents?",
-                "What are the different types of memory in agent systems?",
-                "What tools and techniques are mentioned for agent development?"
-            ]
+            # Instructions and examples
+            st.markdown("""
+            **How to use:** Ask questions about LLM agents, planning, memory systems, and tools. 
+            The system will search through the knowledge graph to provide relevant answers.
             
-            col1, col2 = st.columns(2)
-            for i, query in enumerate(predefined_queries):
-                with col1 if i % 2 == 0 else col2:
-                    if st.button(f"📝 {query}", key=f"predefined_{i}"):
-                        with st.spinner("Processing query..."):
-                            try:
-                                response = st.session_state.query_engine.query(query)
-                                st.success("✅ Query completed!")
-                                st.write("**Response:**")
-                                st.write(response)
-                            except Exception as e:
-                                st.error(f"Error processing query: {e}")
+            **Example queries:**
+            - *What are the main components of LLM-powered autonomous agents?*
+            - *How does planning work in LLM agents?*
+            - *What are the different types of memory in agent systems?*
+            """)
             
             st.divider()
             
-            # Custom query
-            st.subheader("💬 Custom Query")
-            custom_query = st.text_area(
-                "Enter your custom query:",
-                placeholder="Ask anything about LLM agents and the technical content...",
-                height=100
+            # Simple query interface
+            query_input = st.text_input(
+                "Enter your question:",
+                placeholder="e.g., What are the main components of LLM agents?",
+                key="query_input"
             )
             
-            if st.button("🔍 Run Custom Query", type="primary"):
-                if custom_query.strip():
-                    with st.spinner("Processing custom query..."):
-                        try:
-                            response = st.session_state.query_engine.query(custom_query)
-                            st.success("✅ Query completed!")
-                            st.write("**Response:**")
+            col1, col2 = st.columns([1, 4])
+            with col1:
+                query_button = st.button("🔍 Ask", type="primary", use_container_width=True)
+            
+            if query_button and query_input.strip():
+                # Create a container for real-time updates
+                status_container = st.container()
+                response_container = st.container()
+                
+                with status_container:
+                    status_placeholder = st.empty()
+                    progress_bar = st.progress(0)
+                
+                try:
+                    # Step 1: Initialize
+                    status_placeholder.info("🔍 Analyzing your question...")
+                    progress_bar.progress(20)
+                    
+                    # Step 2: Entity extraction
+                    status_placeholder.info("🧠 Finding relevant entities in the knowledge graph...")
+                    progress_bar.progress(40)
+                    
+                    # Step 3: Community search
+                    status_placeholder.info("🏘️ Searching through communities...")
+                    progress_bar.progress(60)
+                    
+                    # Step 4: Generate response
+                    status_placeholder.info("✍️ Generating response...")
+                    progress_bar.progress(80)
+                    
+                    # Execute query
+                    response = st.session_state.query_engine.query(query_input)
+                    
+                    # Step 5: Complete
+                    progress_bar.progress(100)
+                    status_placeholder.success("✅ Query completed successfully!")
+                    
+                    # Display response with debug information
+                    with response_container:
+                        # Create tabs for response and debug info
+                        resp_tab1, resp_tab2 = st.tabs(["📝 Final Response", "🔍 Debug Information"])
+                        
+                        with resp_tab1:
+                            st.subheader("📝 Response:")
                             st.write(response)
-                        except Exception as e:
-                            st.error(f"Error processing query: {e}")
-                else:
-                    st.warning("Please enter a query.")
+                            
+                            # Add copy button
+                            if st.button("📋 Copy Response"):
+                                st.success("Response copied to clipboard!")
+                        
+                        with resp_tab2:
+                            st.subheader("🔍 Debug Information")
+                            
+                            # Show source nodes if available
+                            if hasattr(response, 'source_nodes') and response.source_nodes:
+                                st.write("**📚 Source Nodes Used:**")
+                                for i, node in enumerate(response.source_nodes):
+                                    with st.expander(f"Source Node {i+1} (Score: {getattr(node, 'score', 'N/A')})"):
+                                        st.write(f"**Content:** {node.text[:500]}...")
+                                        if hasattr(node, 'metadata'):
+                                            st.write(f"**Metadata:** {node.metadata}")
+                            
+                            # Show relevant chunks (NEW!)
+                            st.write("**📄 Relevant Text Chunks:**")
+                            try:
+                                if hasattr(st.session_state.query_engine, 'nodes') and st.session_state.query_engine.nodes:
+                                    # Get entities for chunk search
+                                    entities = []
+                                    try:
+                                        entities = st.session_state.query_engine.get_entities(query_input, similarity_top_k)
+                                    except:
+                                        pass
+                                    
+                                    # Get relevant chunks
+                                    relevant_chunks = st.session_state.query_engine.get_relevant_chunks(query_input, entities)
+                                    
+                                    if relevant_chunks:
+                                        st.write(f"Found {len(relevant_chunks)} relevant chunks:")
+                                        
+                                        chunk_debug_data = []
+                                        for i, chunk in enumerate(relevant_chunks[:5]):  # Show top 5
+                                            chunk_debug_data.append({
+                                                "ID": i + 1,
+                                                "Score": chunk['score'],
+                                                "Text Preview": chunk['text'][:200] + "..." if len(chunk['text']) > 200 else chunk['text'],
+                                                "Length": len(chunk['text']),
+                                                "Source": chunk['metadata'].get('source', 'Unknown') if chunk['metadata'] else 'Unknown'
+                                            })
+                                        
+                                        debug_chunks_df = pd.DataFrame(chunk_debug_data)
+                                        st.dataframe(debug_chunks_df, use_container_width=True)
+                                        st.write(f"*Showing top {len(chunk_debug_data)} chunks out of {len(relevant_chunks)} total*")
+                                    else:
+                                        st.write("No relevant chunks found based on keyword and entity matching.")
+                                else:
+                                    st.write("No nodes available for chunk analysis.")
+                                    
+                            except Exception as e:
+                                st.error(f"Error loading chunks: {e}")
+                            
+                            # Show relevant triplets
+                            st.write("**🔺 Relevant Triplets:**")
+                            try:
+                                # Get all triplets and filter for relevance
+                                all_triplets = st.session_state.graph_store.get_triplets()
+                                
+                                # Simple keyword matching for relevance
+                                query_keywords = query_input.lower().split()
+                                relevant_triplets = []
+                                
+                                for triplet in all_triplets:
+                                    entity1, relation, entity2 = triplet
+                                    entity1_name = entity1.name if hasattr(entity1, 'name') else str(entity1)
+                                    entity2_name = entity2.name if hasattr(entity2, 'name') else str(entity2)
+                                    relation_label = relation.label if hasattr(relation, 'label') else str(relation)
+                                    
+                                    # Check if any query keyword appears in the triplet
+                                    triplet_text = f"{entity1_name} {relation_label} {entity2_name}".lower()
+                                    if any(keyword in triplet_text for keyword in query_keywords):
+                                        relevant_triplets.append(triplet)
+                                
+                                if relevant_triplets:
+                                    triplet_debug_data = []
+                                    for i, (entity1, relation, entity2) in enumerate(relevant_triplets[:10]):  # Show top 10
+                                        triplet_debug_data.append({
+                                            "ID": i + 1,
+                                            "Subject": entity1.name if hasattr(entity1, 'name') else str(entity1),
+                                            "Predicate": relation.label if hasattr(relation, 'label') else str(relation),
+                                            "Object": entity2.name if hasattr(entity2, 'name') else str(entity2),
+                                            "Description": relation.properties.get('relationship_description', 'N/A') if hasattr(relation, 'properties') else 'N/A'
+                                        })
+                                    
+                                    debug_triplets_df = pd.DataFrame(triplet_debug_data)
+                                    st.dataframe(debug_triplets_df, use_container_width=True)
+                                    st.write(f"*Showing {len(relevant_triplets)} relevant triplets out of {len(all_triplets)} total*")
+                                else:
+                                    st.write("No directly relevant triplets found based on keyword matching.")
+                                    
+                            except Exception as e:
+                                st.error(f"Error loading triplets: {e}")
+                            
+                            # Show relevant communities
+                            st.write("**🏘️ Community Information:**")
+                            try:
+                                if hasattr(st.session_state.graph_store, 'get_community_summaries'):
+                                    communities = st.session_state.graph_store.get_community_summaries()
+                                    if communities:
+                                        st.write(f"Found {len(communities)} communities in the knowledge graph:")
+                                        
+                                        # Show community summaries that might be relevant
+                                        query_keywords = query_input.lower().split()
+                                        relevant_communities = []
+                                        
+                                        for community_id, summary in communities.items():
+                                            summary_lower = summary.lower()
+                                            if any(keyword in summary_lower for keyword in query_keywords):
+                                                relevant_communities.append((community_id, summary))
+                                        
+                                        if relevant_communities:
+                                            st.write(f"**Relevant Communities ({len(relevant_communities)}):**")
+                                            for community_id, summary in relevant_communities[:5]:  # Show top 5
+                                                with st.expander(f"Community {community_id}"):
+                                                    st.write(summary)
+                                        else:
+                                            st.write("No communities found with direct keyword matches.")
+                                            # Show first few communities as fallback
+                                            st.write("**Sample Communities:**")
+                                            for i, (community_id, summary) in enumerate(list(communities.items())[:3]):
+                                                with st.expander(f"Community {community_id}"):
+                                                    st.write(summary[:300] + "..." if len(summary) > 300 else summary)
+                                    else:
+                                        st.write("No community summaries available.")
+                                else:
+                                    st.write("Community functionality not available in current graph store.")
+                                    
+                            except Exception as e:
+                                st.error(f"Error loading communities: {e}")
+                            
+                            # Show query processing details if available
+                            if hasattr(response, 'metadata') and response.metadata:
+                                st.write("**⚙️ Query Processing Details:**")
+                                st.json(response.metadata)
+                            
+                except Exception as e:
+                    status_placeholder.error(f"❌ Error: {str(e)}")
+                    st.error(f"Detailed error: {e}")
+                    import traceback
+                    st.code(traceback.format_exc())
+            
+            elif query_button and not query_input.strip():
+                st.warning("⚠️ Please enter a question before clicking Ask.")
+                
         else:
             st.warning("⚠️ Query interface not ready. Please check the setup.")
     
@@ -227,16 +399,7 @@ def main():
                             unique_relations.add(relation.label if hasattr(relation, 'label') else str(relation))
                         st.metric("Unique Relations", len(unique_relations))
                     
-                    # Export functionality
-                    st.subheader("📥 Export Data")
-                    if st.button("📄 Download Triplets as CSV"):
-                        csv = triplets_df.to_csv(index=False)
-                        st.download_button(
-                            label="Download CSV",
-                            data=csv,
-                            file_name="knowledge_graph_triplets.csv",
-                            mime="text/csv"
-                        )
+
                     
                     # Graph Visualizations
                     st.divider()

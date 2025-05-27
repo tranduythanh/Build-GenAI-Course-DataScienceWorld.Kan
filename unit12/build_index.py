@@ -48,7 +48,7 @@ def print_progress(message, step=None, total_steps=None):
         print(f"[{timestamp}] {message}")
 
 
-def save_index_data(index, query_engine, files_df, output_dir="./index_data"):
+def save_index_data(index, query_engine, files_df, nodes=None, output_dir="./index_data"):
     """Save the built index and related data to disk."""
     try:
         os.makedirs(output_dir, exist_ok=True)
@@ -58,7 +58,8 @@ def save_index_data(index, query_engine, files_df, output_dir="./index_data"):
             'timestamp': datetime.now().isoformat(),
             'files_processed': len(files_df) if files_df is not None else 0,
             'index_type': type(index).__name__,
-            'query_engine_type': type(query_engine).__name__
+            'query_engine_type': type(query_engine).__name__,
+            'nodes_count': len(nodes) if nodes is not None else 0
         }
         
         with open(os.path.join(output_dir, 'index_metadata.pkl'), 'wb') as f:
@@ -67,6 +68,13 @@ def save_index_data(index, query_engine, files_df, output_dir="./index_data"):
         # Save files dataframe
         if files_df is not None:
             files_df.to_pickle(os.path.join(output_dir, 'files_df.pkl'))
+        
+        # Save nodes (chunks) gốc
+        if nodes is not None:
+            print(f"💾 Saving {len(nodes)} nodes to disk...")
+            with open(os.path.join(output_dir, 'nodes.pkl'), 'wb') as f:
+                pickle.dump(nodes, f)
+            print(f"✅ Nodes saved successfully")
         
         print(f"✅ Index data saved to {output_dir}")
         return True
@@ -190,7 +198,7 @@ def main():
         
         # Step 10: Setup query engine
         print_progress("Setting up query engine...", 10, total_steps)
-        query_engine = setup_query_engine(index, llm, similarity_top_k)
+        query_engine = setup_query_engine(index, llm, similarity_top_k, nodes)
         
         if not query_engine:
             print("❌ Failed to setup query engine")
@@ -200,7 +208,7 @@ def main():
         
         # Save index data
         print_progress("Saving index data...")
-        save_success = save_index_data(index, query_engine, files_df)
+        save_success = save_index_data(index, query_engine, files_df, nodes)
         
         if not save_success:
             print("⚠️ Failed to save index data, but index is built in Neo4j")

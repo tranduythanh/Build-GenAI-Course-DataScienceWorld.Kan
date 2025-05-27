@@ -54,7 +54,7 @@ def setup_graph_store(llm):
 
 
 
-def setup_query_engine(index, llm, similarity_top_k):
+def setup_query_engine(index, llm, similarity_top_k, nodes=None):
     """Setup the GraphRAG query engine."""
     try:
         query_engine = GraphRAGQueryEngine(
@@ -62,6 +62,7 @@ def setup_query_engine(index, llm, similarity_top_k):
             llm=llm,
             index=index,
             similarity_top_k=similarity_top_k,
+            nodes=nodes
         )
         return query_engine
     except Exception as e:
@@ -74,9 +75,10 @@ def load_index_data(data_dir="./index_data"):
     try:
         metadata_path = os.path.join(data_dir, 'index_metadata.pkl')
         files_df_path = os.path.join(data_dir, 'files_df.pkl')
+        nodes_path = os.path.join(data_dir, 'nodes.pkl')
         
         if not os.path.exists(metadata_path):
-            return None, None
+            return None, None, None
         
         # Load metadata
         with open(metadata_path, 'rb') as f:
@@ -87,14 +89,40 @@ def load_index_data(data_dir="./index_data"):
         if os.path.exists(files_df_path):
             files_df = pd.read_pickle(files_df_path)
         
-        return metadata, files_df
+        # Load nodes if exists
+        nodes = None
+        if os.path.exists(nodes_path):
+            with open(nodes_path, 'rb') as f:
+                nodes = pickle.load(f)
+            print(f"✅ Loaded {len(nodes)} nodes from disk")
+        
+        return metadata, files_df, nodes
         
     except Exception as e:
         if hasattr(st, 'error'):
             st.error(f"Error loading index data: {e}")
         else:
             print(f"Error loading index data: {e}")
-        return None, None
+        return None, None, None
+
+
+def load_nodes(data_dir="./index_data"):
+    """Load nodes from disk."""
+    try:
+        nodes_path = os.path.join(data_dir, 'nodes.pkl')
+        
+        if not os.path.exists(nodes_path):
+            return None
+        
+        with open(nodes_path, 'rb') as f:
+            nodes = pickle.load(f)
+        
+        print(f"✅ Loaded {len(nodes)} nodes from {nodes_path}")
+        return nodes
+        
+    except Exception as e:
+        print(f"❌ Error loading nodes: {e}")
+        return None
 
 
 def check_neo4j_connection(graph_store):
