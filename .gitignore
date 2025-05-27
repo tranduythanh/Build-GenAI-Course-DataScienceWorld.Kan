@@ -16,3 +16,5 @@ unit09/stock-quant/app_debug.log
 books_*
 unit11/logs
 unit11/data/cache
+unit12/data/*_converted.md
+unit12/**/*.pkl

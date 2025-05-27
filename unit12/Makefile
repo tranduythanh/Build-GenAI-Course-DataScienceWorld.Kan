@@ -1,4 +1,4 @@
-.PHONY: help install neo4j-start neo4j-stop neo4j-status neo4j-reset test-connection run clean
+.PHONY: help install neo4j-start neo4j-stop neo4j-status neo4j-reset test-connection run streamlit clean
 
 # Default target
 help:
@@ -15,7 +15,8 @@ help:
 	@echo "Application Commands:"
 	@echo "  test             Run all unit tests"
 	@echo "  test-connection  Test Neo4j connection"
-	@echo "  run              Run the GraphRAG application"
+	@echo "  run              Run the GraphRAG application (terminal)"
+	@echo "  streamlit        Run the Streamlit web interface"
 	@echo ""
 	@echo "Maintenance Commands:"
 	@echo "  clean            Clean up Docker containers and volumes"
@@ -48,7 +49,7 @@ test-connection:
 	cd tests && python test_neo4j_connection.py --connection-only
 
 run:
-	python app.py
+	streamlit run app.py
 
 # Cleanup
 clean:

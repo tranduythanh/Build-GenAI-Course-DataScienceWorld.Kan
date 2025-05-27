@@ -1,235 +1,263 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-GraphRAG Application - Terminal Version
-A complete GraphRAG implementation using LlamaIndex and Neo4j
-"""
 
+import streamlit as st
+import traceback
 import os
-import re
+import pickle
 import pandas as pd
-from typing import Any
 
 # Local imports
 from const import (
-    CSV_KG_EXTRACT_TMPL,
-    NEO4J_URI, 
-    NEO4J_USERNAME, 
-    NEO4J_PASSWORD,
-    OPENAI_API_KEY,
-    DEFAULT_MODEL,
-    EMBEDDING_MODEL,
-    DATA_URL,
-    DEFAULT_CHUNK_SIZE,
-    DEFAULT_CHUNK_OVERLAP,
-    DEFAULT_MAX_PATHS_PER_CHUNK,
     DEFAULT_SIMILARITY_TOP_K
 )
-from graph_rag_extractor import GraphRAGExtractor, parse_csv_triplets_fn
-from graph_rag_store import GraphRAGStore
-from graph_rag_query_engine import GraphRAGQueryEngine
 
-# LlamaIndex imports
-from llama_index.core import Document, PropertyGraphIndex
-from llama_index.core.node_parser import SentenceSplitter
-from llama_index.llms.openai import OpenAI
-from llama_index.embeddings.huggingface import HuggingFaceEmbedding
-
-
-def parse_fn(response_str: str) -> Any:
-    """Parse function for extracting entities and relationships from LLM response."""
-    # Use the improved CSV parsing function from graph_rag_extractor
-    return parse_csv_triplets_fn(response_str)
+# Import utility functions for querying
+from utils import (
+    setup_llm,
+    setup_graph_store,
+    setup_query_engine,
+    analyze_graph
+)
 
 
-def load_data(num_samples: int = 50):
-    """Load and prepare news articles data."""
-    print(f"Loading {num_samples} news articles...")
-    news = pd.read_csv(DATA_URL)[:num_samples]
-    
-    documents = [
-        Document(text=f"{row['title']}: {row['text']}")
-        for i, row in news.iterrows()
-    ]
-    
-    print(f"Loaded {len(documents)} documents")
-    return documents
-
-
-def setup_llm():
-    """Setup and configure the language model."""
-    print("Setting up OpenAI LLM...")
-    os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
-    
-    llm = OpenAI(model=DEFAULT_MODEL)
-    
-    # Test the LLM
-    print("Testing LLM connection...")
-    response = llm.complete("What is the capital of Vietnam?")
-    print(f"LLM Test Response: {response}")
-    
-    return llm
-
-
-def setup_embedding_model():
-    """Setup the embedding model."""
-    print("Setting up embedding model...")
-    embed_model = HuggingFaceEmbedding(model_name=EMBEDDING_MODEL)
-    return embed_model
-
-
-def create_nodes(documents):
-    """Create text nodes/chunks from documents."""
-    print("Creating text nodes...")
-    splitter = SentenceSplitter(
-        chunk_size=DEFAULT_CHUNK_SIZE,
-        chunk_overlap=DEFAULT_CHUNK_OVERLAP,
-    )
-    nodes = splitter.get_nodes_from_documents(documents)
-    print(f"Created {len(nodes)} nodes")
-    return nodes
-
-
-def setup_kg_extractor(llm):
-    """Setup the Knowledge Graph extractor."""
-    print("Setting up KG extractor...")
-    kg_extractor = GraphRAGExtractor(
-        llm=llm,
-        extract_prompt=CSV_KG_EXTRACT_TMPL,
-        max_paths_per_chunk=DEFAULT_MAX_PATHS_PER_CHUNK,
-        parse_fn=parse_fn,
-    )
-    return kg_extractor
-
-
-def setup_graph_store(llm):
-    """Setup the Neo4j graph store."""
-    print("Setting up Neo4j graph store...")
-    graph_store = GraphRAGStore(
-        username=NEO4J_USERNAME,
-        password=NEO4J_PASSWORD,
-        url=NEO4J_URI
-    )
-    graph_store.set_llm(llm)
-    return graph_store
-
-
-def build_index(nodes, kg_extractor, graph_store, embed_model, num_nodes=10):
-    """Build the Property Graph Index."""
-    print(f"Building PropertyGraphIndex with {num_nodes} nodes...")
-    index = PropertyGraphIndex(
-        nodes=nodes[:num_nodes],
-        kg_extractors=[kg_extractor],
-        property_graph_store=graph_store,
-        show_progress=True,
-        embed_model=embed_model
-    )
-    
-    print("Index built successfully!")
-    return index
-
-
-def analyze_graph(index):
-    """Analyze the constructed graph."""
-    print("\n=== Graph Analysis ===")
-    triplets = index.property_graph_store.get_triplets()
-    print(f"Total triplets: {len(triplets)}")
-    
-    if len(triplets) > 0:
-        print("\nSample triplet:")
-        print(f"Entity 1: {triplets[0][0].name}")
-        print(f"Relation: {triplets[0][1].label}")
-        print(f"Entity 2: {triplets[0][2].name}")
+def load_index_data(data_dir="./index_data"):
+    """Load pre-built index data from disk."""
+    try:
+        metadata_path = os.path.join(data_dir, 'index_metadata.pkl')
+        files_df_path = os.path.join(data_dir, 'files_df.pkl')
         
-        if len(triplets) > 10:
-            print(f"\nTriplet 10 properties:")
-            print(f"Entity properties: {triplets[10][0].properties}")
-            print(f"Relation properties: {triplets[10][1].properties}")
+        if not os.path.exists(metadata_path):
+            return None, None
+        
+        # Load metadata
+        with open(metadata_path, 'rb') as f:
+            metadata = pickle.load(f)
+        
+        # Load files dataframe if exists
+        files_df = None
+        if os.path.exists(files_df_path):
+            files_df = pd.read_pickle(files_df_path)
+        
+        return metadata, files_df
+        
+    except Exception as e:
+        st.error(f"Error loading index data: {e}")
+        return None, None
 
 
-def build_communities(index):
-    """Build communities and generate summaries."""
-    print("\n=== Building Communities ===")
-    index.property_graph_store.build_communities()
-    print("Communities built and summarized!")
-
-
-def setup_query_engine(index, llm):
-    """Setup the GraphRAG query engine."""
-    print("Setting up query engine...")
-    query_engine = GraphRAGQueryEngine(
-        graph_store=index.property_graph_store,
-        llm=llm,
-        index=index,
-        similarity_top_k=DEFAULT_SIMILARITY_TOP_K,
-    )
-    return query_engine
-
-
-def run_queries(query_engine):
-    """Run sample queries."""
-    print("\n=== Running Sample Queries ===")
-    
-    queries = [
-        "What are the main news discussed in the document?",
-        "What are the main news in energy sector?",
-        "What companies or organizations are mentioned?",
-        "What are the key events or developments?"
-    ]
-    
-    for i, query in enumerate(queries, 1):
-        print(f"\nQuery {i}: {query}")
-        print("-" * 50)
-        try:
-            response = query_engine.query(query)
-            print(f"Response: {response}")
-        except Exception as e:
-            print(f"Error processing query: {e}")
-        print()
+def check_neo4j_connection(graph_store):
+    """Check if Neo4j has data and is accessible."""
+    try:
+        triplets = graph_store.get_triplets()
+        return len(triplets) > 0, len(triplets)
+    except Exception as e:
+        st.error(f"Neo4j connection error: {e}")
+        return False, 0
 
 
 def main():
-    """Main application entry point."""
-    print("=" * 60)
-    print("GraphRAG Application - Terminal Version")
-    print("=" * 60)
+    """Main Streamlit application for querying GraphRAG."""
+    st.set_page_config(
+        page_title="GraphRAG Query Interface",
+        page_icon="🔍",
+        layout="wide",
+        initial_sidebar_state="expanded"
+    )
     
-    try:
-        # Load data
-        documents = load_data(num_samples=50)
+    st.title("🔍 GraphRAG Query Interface")
+    st.markdown("Query your pre-built knowledge graph using natural language")
+    
+    # Check if index has been built
+    metadata, files_df = load_index_data()
+    
+    if metadata is None:
+        st.error("❌ No pre-built index found!")
+        st.markdown("""
+        **Please build the index first by running:**
+        ```bash
+        python build_index.py
+        ```
         
-        # Setup components
-        llm = setup_llm()
-        embed_model = setup_embedding_model()
+        This will:
+        1. Convert HTML files to Markdown
+        2. Extract knowledge from documents
+        3. Build the knowledge graph in Neo4j
+        4. Prepare the query engine
         
-        # Create nodes
-        nodes = create_nodes(documents)
+        After building the index, refresh this page to start querying.
+        """)
+        return
+    
+    # Sidebar for configuration and info
+    st.sidebar.header("📊 Index Information")
+    st.sidebar.write(f"**Built:** {metadata.get('timestamp', 'Unknown')}")
+    st.sidebar.write(f"**Files processed:** {metadata.get('files_processed', 'Unknown')}")
+    st.sidebar.write(f"**Index type:** {metadata.get('index_type', 'Unknown')}")
+    
+    # Query configuration
+    st.sidebar.header("⚙️ Query Settings")
+    similarity_top_k = st.sidebar.slider("Similarity top K", 5, 20, DEFAULT_SIMILARITY_TOP_K)
+    
+    # Initialize session state
+    if 'query_engine' not in st.session_state:
+        st.session_state.query_engine = None
+    if 'graph_store' not in st.session_state:
+        st.session_state.graph_store = None
+    if 'index_loaded' not in st.session_state:
+        st.session_state.index_loaded = False
+    
+    # Setup components if not already done
+    if not st.session_state.index_loaded:
+        with st.spinner("🔧 Setting up query components..."):
+            try:
+                # Setup LLM
+                llm = setup_llm()
+                if not llm:
+                    st.error("Failed to setup LLM")
+                    return
+                
+                # Setup graph store
+                graph_store = setup_graph_store(llm)
+                if not graph_store:
+                    st.error("Failed to setup graph store")
+                    return
+                
+                # Check Neo4j connection and data
+                has_data, triplet_count = check_neo4j_connection(graph_store)
+                if not has_data:
+                    st.error("❌ No data found in Neo4j! Please run `python build_index.py` first.")
+                    return
+                
+                st.success(f"✅ Connected to Neo4j with {triplet_count} triplets")
+                
+                # Create a mock index for the query engine
+                from llama_index.core import PropertyGraphIndex
+                index = PropertyGraphIndex.from_existing(
+                    property_graph_store=graph_store,
+                    embed_kg_nodes=False
+                )
+                
+                # Setup query engine
+                query_engine = setup_query_engine(index, llm, similarity_top_k)
+                if not query_engine:
+                    st.error("Failed to setup query engine")
+                    return
+                
+                # Store in session state
+                st.session_state.query_engine = query_engine
+                st.session_state.graph_store = graph_store
+                st.session_state.index = index
+                st.session_state.index_loaded = True
+                
+                st.success("✅ Query interface ready!")
+                
+            except Exception as e:
+                st.error(f"Error setting up query interface: {e}")
+                st.error(traceback.format_exc())
+                return
+    
+    # Main content area
+    tab1, tab2, tab3 = st.tabs(["🔍 Query Interface", "📊 Graph Analysis", "📄 Data Info"])
+    
+    with tab1:
+        st.header("Ask Questions About Your Knowledge Graph")
         
-        # Setup extractors and stores
-        kg_extractor = setup_kg_extractor(llm)
-        graph_store = setup_graph_store(llm)
+        if st.session_state.index_loaded and st.session_state.query_engine:
+            # Predefined queries
+            st.subheader("🎯 Quick Queries")
+            predefined_queries = [
+                "What are the main components of LLM-powered autonomous agents?",
+                "How does planning work in LLM agents?",
+                "What are the different types of memory in agent systems?",
+                "What tools and techniques are mentioned for agent development?"
+            ]
+            
+            col1, col2 = st.columns(2)
+            for i, query in enumerate(predefined_queries):
+                with col1 if i % 2 == 0 else col2:
+                    if st.button(f"📝 {query}", key=f"predefined_{i}"):
+                        with st.spinner("Processing query..."):
+                            try:
+                                response = st.session_state.query_engine.query(query)
+                                st.success("✅ Query completed!")
+                                st.write("**Response:**")
+                                st.write(response)
+                            except Exception as e:
+                                st.error(f"Error processing query: {e}")
+            
+            st.divider()
+            
+            # Custom query
+            st.subheader("💬 Custom Query")
+            custom_query = st.text_area(
+                "Enter your custom query:",
+                placeholder="Ask anything about LLM agents and the technical content...",
+                height=100
+            )
+            
+            if st.button("🔍 Run Custom Query", type="primary"):
+                if custom_query.strip():
+                    with st.spinner("Processing custom query..."):
+                        try:
+                            response = st.session_state.query_engine.query(custom_query)
+                            st.success("✅ Query completed!")
+                            st.write("**Response:**")
+                            st.write(response)
+                        except Exception as e:
+                            st.error(f"Error processing query: {e}")
+                else:
+                    st.warning("Please enter a query.")
+        else:
+            st.warning("⚠️ Query interface not ready. Please check the setup.")
+    
+    with tab2:
+        st.header("Graph Analysis")
         
-        # Build index
-        index = build_index(nodes, kg_extractor, graph_store, embed_model, num_nodes=10)
+        if st.session_state.index_loaded and 'index' in st.session_state:
+            # Analyze graph
+            triplets = analyze_graph(st.session_state.index)
+            
+            # Show community information if available
+            if hasattr(st.session_state.graph_store, 'get_community_summaries'):
+                try:
+                    communities = st.session_state.graph_store.get_community_summaries()
+                    if communities:
+                        st.subheader("🏘️ Community Summaries")
+                        for i, (community_id, summary) in enumerate(communities.items()):
+                            if i < 5:  # Show first 5 communities
+                                with st.expander(f"Community {community_id}"):
+                                    st.write(summary)
+                except Exception as e:
+                    st.warning(f"Could not load community summaries: {e}")
+        else:
+            st.warning("⚠️ Graph analysis not available. Please check the setup.")
+    
+    with tab3:
+        st.header("Data Information")
         
-        # Analyze graph
-        analyze_graph(index)
+        # Show files information if available
+        if files_df is not None and not files_df.empty:
+            st.subheader("📄 Processed Files")
+            st.dataframe(files_df, use_container_width=True)
+        else:
+            st.info("No file information available")
         
-        # Build communities
-        build_communities(index)
-        
-        # Setup query engine
-        query_engine = setup_query_engine(index, llm)
-        
-        # Run queries
-        run_queries(query_engine)
-        
-        print("\n=== GraphRAG Pipeline Completed Successfully! ===")
-        
-    except Exception as e:
-        print(f"Error in main execution: {e}")
-        import traceback
-        traceback.print_exc()
+        # Show index metadata
+        if metadata:
+            st.subheader("🔧 Index Metadata")
+            st.json(metadata)
+    
+    # Footer
+    st.divider()
+    st.markdown(
+        """
+        <div style='text-align: center; color: #666;'>
+            <p>GraphRAG Query Interface powered by LlamaIndex, Neo4j, and Streamlit</p>
+            <p>Build index with: <code>python build_index.py</code></p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
 
 if __name__ == "__main__":

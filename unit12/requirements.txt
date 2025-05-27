@@ -16,3 +16,11 @@ future==1.0.0
 
 # Async support
 nest-asyncio
+
+# Web interface
+streamlit
+
+# HTML to Markdown conversion
+beautifulsoup4==4.12.2
+html2text==2020.1.16
+markdownify==0.11.6

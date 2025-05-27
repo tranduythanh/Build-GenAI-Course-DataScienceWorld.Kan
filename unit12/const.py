@@ -13,7 +13,7 @@ def get_env_var(key: str, default: Optional[str] = None) -> str:
 CSV_KG_EXTRACT_TMPL = """
 -Goal-
 Given a text document, identify all entities and their entity types from the text and all relationships among the identified entities.
-Extract up to {max_knowledge_triplets} entity-relation triplets.
+Extract up to {max_knowledge_triplets} entity-relation triplets. Focus on comprehensive extraction to capture the full knowledge structure.
 
 -Steps-
 1. Identify all entities. For each identified entity, extract the following information:
@@ -66,7 +66,8 @@ EMBEDDING_MODEL = "BAAI/bge-small-en-v1.5"
 
 # Data Configuration
 DATA_URL = "https://raw.githubusercontent.com/tomasonjo/blog-datasets/main/news_articles.csv"
-DEFAULT_CHUNK_SIZE = 1024
+# Optimized for GPT-4o-mini (128K context window) and markdown content
+DEFAULT_CHUNK_SIZE = 500
 DEFAULT_CHUNK_OVERLAP = 20
 DEFAULT_MAX_PATHS_PER_CHUNK = 2
 DEFAULT_SIMILARITY_TOP_K = 10
