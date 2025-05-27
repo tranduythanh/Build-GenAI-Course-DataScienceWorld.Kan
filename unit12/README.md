@@ -1,6 +1,6 @@
-# GraphRAG Application
+# GraphRAG Application with Nodes Integration
 
-Một ứng dụng GraphRAG hoàn chỉnh sử dụng LlamaIndex, Neo4j và Streamlit để xây dựng và truy vấn knowledge graph từ các tài liệu markdown.
+Một ứng dụng GraphRAG hoàn chỉnh sử dụng LlamaIndex, Neo4j và Streamlit để xây dựng và truy vấn knowledge graph từ các tài liệu markdown, **bao gồm cả nodes (chunks) gốc**.
 
 ## 🏗️ Kiến trúc
 
@@ -9,11 +9,16 @@ Một ứng dụng GraphRAG hoàn chỉnh sử dụng LlamaIndex, Neo4j và Stre
 1. **`build_index.py`** - Script xây dựng index (chạy trong terminal)
 2. **`app.py`** - Giao diện Streamlit để truy vấn (chạy trong browser)
 
+### 🆕 Tính năng mới: Nodes Integration
+- **Lưu trữ nodes gốc**: Các text chunks ban đầu được lưu vào `index_data/nodes.pkl`
+- **Sử dụng trong query**: Query engine có thể truy cập cả graph structure và text chunks gốc
+- **Tăng độ chính xác**: Kết hợp thông tin từ entities, communities và chunks thô
+
 ## 📋 Yêu cầu hệ thống
 
 ### Dependencies
 ```bash
-pip install streamlit llama-index neo4j openai pandas beautifulsoup4 markdownify huggingface-hub
+pip install streamlit llama-index neo4j openai pandas beautifulsoup4 markdownify huggingface-hub plotly networkx
 ```
 
 ### Neo4j Database
@@ -60,7 +65,7 @@ Chạy script build index trong terminal:
 python build_index.py
 ```
 
-## 🔄 Quy trình Build Index Chi tiết
+## 🔄 Quy trình Build Index Chi tiết (Updated)
 
 ```mermaid
 graph TD
@@ -68,7 +73,7 @@ graph TD
     B --> C[📖 Load Documents]
     C --> D[🤖 Setup LLM: GPT-4o-mini]
     D --> E[🧠 Setup Embedding Model: BGE-small]
-    E --> F[✂️ Create Text Chunks]
+    E --> F[✂️ Create Text Chunks/Nodes]
     F --> G[🕸️ Setup KG Extractor]
     G --> H[🗄️ Setup Neo4j Graph Store]
     H --> I[🔍 Extract Knowledge from Chunks]
@@ -76,12 +81,16 @@ graph TD
     J --> K[🏘️ Build Communities]
     K --> L[🔧 Setup Query Engine]
     L --> M[💿 Save Index Metadata]
-    M --> N[✅ Ready for Queries]
+    M --> N[💾 Save Nodes to Disk]
+    N --> O[✅ Ready for Queries]
 
-    subgraph "Chunk Processing"
+    subgraph "Nodes Processing (NEW!)"
         F --> F1[Chunk Size: 500 tokens]
         F --> F2[Overlap: 20 tokens]
-        F --> F3[Can be optimized for GPT-4o-mini]
+        F --> F3[Save as nodes.pkl]
+        N --> N1[Store original text chunks]
+        N --> N2[Include metadata]
+        N --> N3[Enable chunk retrieval]
     end
 
     subgraph "Knowledge Extraction"
@@ -97,56 +106,82 @@ graph TD
     end
 ```
 
-### Các bước chi tiết:
+### 🆕 Các bước cập nhật:
 
-1. **🔄 HTML to Markdown Conversion** (`convert_html_to_markdown`)
-   - Chuyển đổi file HTML thành Markdown
-   - Sử dụng BeautifulSoup và markdownify
-   - Skip files đã được convert và up-to-date
+**Step 11: Save Nodes to Disk** (NEW!)
+- Lưu tất cả nodes gốc vào `index_data/nodes.pkl`
+- Bao gồm text content và metadata
+- Cho phép query engine truy cập chunks thô
 
-2. **📖 Load Documents** (`load_data`)
-   - Tải tối đa 50 file markdown (có thể cấu hình)
-   - Tạo Document objects với metadata
-   - Xử lý encoding UTF-8
+**Step 12: Load Nodes in Query** (NEW!)
+- Query engine load nodes từ disk
+- Sử dụng trong quá trình query
+- Kết hợp với graph data
 
-3. **🤖 Setup LLM** (`setup_llm`)
-   - Model: **GPT-4o-mini** (128K context window)
-   - Tối ưu cho cost và performance
-   - Xử lý knowledge extraction
+## 🔍 Quy trình Query với Nodes Integration
 
-4. **🧠 Setup Embedding Model** (`setup_embedding_model`)
-   - Model: **BAAI/bge-small-en-v1.5**
-   - Vai trò: Tạo vector embeddings cho text chunks
-   - Mục đích: Similarity search và retrieval
+```mermaid
+graph TD
+    A[🎯 User Query] --> B[🧠 GraphRAG Query Engine]
+    B --> C[📋 Extract Entities]
+    C --> D[🏘️ Get Communities]
+    D --> E[📄 Get Relevant Chunks]
+    E --> F[🔺 Get Related Triplets]
+    F --> G[🤖 LLM Synthesis]
+    G --> H[✨ Final Response]
 
-5. **✂️ Create Text Chunks** (`create_nodes`)
-   - Chunk size: **500 tokens** (có thể tối ưu thêm cho GPT-4o-mini)
-   - Overlap: **20 tokens** (đảm bảo context liên tục)
-   - Sử dụng SentenceSplitter
+    subgraph "Entity Extraction"
+        C --> C1[Use embedding similarity]
+        C --> C2[Find top K entities]
+        C --> C3[Filter by relevance]
+    end
 
-6. **🕸️ Setup KG Extractor** (`setup_kg_extractor`)
-   - Custom GraphRAGExtractor với CSV format
-   - Fallback: SimpleLLMPathExtractor
-   - Max 2 paths per chunk
+    subgraph "Community Retrieval"
+        D --> D1[Get entity communities]
+        D --> D2[Retrieve summaries]
+        D --> D3[Rank by relevance]
+    end
 
-7. **🗄️ Setup Neo4j Graph Store** (`setup_graph_store`)
-   - Kết nối Neo4j database
-   - Clear existing data
-   - Chuẩn bị cho việc lưu trữ graph
+    subgraph "Chunk Retrieval (NEW!)"
+        E --> E1[Search in saved nodes]
+        E --> E2[Keyword matching]
+        E --> E3[Entity co-occurrence]
+        E --> E4[Score and rank chunks]
+    end
 
-8. **🔍 Extract Knowledge** (`build_index`)
-   - Xử lý **TẤT CẢ** chunks (không giới hạn)
-   - Extract entities và relationships
-   - Detailed logging với màu sắc
+    subgraph "Graph Traversal"
+        F --> F1[Find related triplets]
+        F --> F2[Based on entities]
+        F --> F3[Include relationships]
+    end
 
-9. **💾 Store in Neo4j**
-   - Lưu entities và relationships
-   - Format: (Entity)-[RELATION]->(Entity)
-   - Cypher queries để insert data
+    subgraph "LLM Synthesis"
+        G --> G1[Combine all context]
+        G --> G2[Communities + Chunks + Triplets]
+        G --> G3[Generate coherent answer]
+    end
 
-10. **🏘️ Build Communities** (`build_communities`)
-    - Phân tích cấu trúc community
-    - Tạo summaries (nếu hỗ trợ)
+    style E fill:#e1f5fe
+    style E1 fill:#e1f5fe
+    style E2 fill:#e1f5fe
+    style E3 fill:#e1f5fe
+    style E4 fill:#e1f5fe
+```
+
+### 🔍 Query Processing Details:
+
+1. **Entity Extraction**: Tìm entities liên quan đến query
+2. **Community Retrieval**: Lấy summaries từ communities chứa entities
+3. **🆕 Chunk Retrieval**: Tìm text chunks gốc có chứa keywords và entities
+4. **Graph Traversal**: Lấy triplets liên quan
+5. **LLM Synthesis**: Kết hợp tất cả thông tin để tạo response
+
+### 🎯 Ưu điểm của Nodes Integration:
+
+- **Độ chính xác cao hơn**: Có access đến text ngữ cảnh gốc
+- **Chi tiết hơn**: Không chỉ dựa vào summaries mà còn có raw text
+- **Linh hoạt**: Có thể điều chỉnh thuật toán tìm chunks
+- **Debug-friendly**: Hiển thị được chunks được sử dụng
 
 ## 🧠 Vai trò của EMBEDDING_MODEL
 
@@ -177,13 +212,6 @@ graph LR
 - **Open source**: Miễn phí, không cần API key
 
 #### 🔧 Cấu hình trong code:
-```python
-# const.py
-EMBEDDING_MODEL = "BAAI/bge-small-en-v1.5"
-
-# build_utils.py
-embed_model = HuggingFaceEmbedding(model_name=EMBEDDING_MODEL)
-```
 
 ### Bước 4: Chạy ứng dụng Streamlit
 
@@ -219,194 +247,53 @@ Sau khi build index thành công, bạn có thể thử các câu hỏi mẫu sa
 - Có thể hỏi về relationships giữa các concepts
 - Thử các câu hỏi "How", "What", "Why" để có câu trả lời chi tiết
 
-## 🎛️ Cấu hình tối ưu (Đã cập nhật)
 
-### Environment Variables
-
-```bash
-# Số lượng file markdown để xử lý (mặc định: 50)
-export NUM_MARKDOWN_FILES=50
-
-# Xử lý TẤT CẢ nodes (không giới hạn)
-# NUM_NODES_TO_PROCESS không còn được sử dụng
-
-# Kích thước chunk (có thể tối ưu cho GPT-4o-mini)
-export CHUNK_SIZE=500
-
-# Chunk overlap
-export CHUNK_OVERLAP=20
-
-# Max paths per chunk
-export MAX_PATHS_PER_CHUNK=2
-
-# Similarity top K
-export SIMILARITY_TOP_K=10
-```
-
-### Cấu hình mặc định
-
-Giá trị mặc định từ `const.py`:
-
-- `NUM_MARKDOWN_FILES`: **50** (tăng từ 10)
-- `CHUNK_SIZE`: **500** (có thể tối ưu thêm cho GPT-4o-mini)
-- `CHUNK_OVERLAP`: **20**
-- `MAX_PATHS_PER_CHUNK`: **2**
-- `SIMILARITY_TOP_K`: 10
-
-### 💡 Gợi ý tối ưu hóa:
-
-Để tận dụng tốt hơn GPT-4o-mini (128K context window), bạn có thể:
-
-1. **Tăng CHUNK_SIZE** lên 4096-8192 tokens để giảm API requests
-2. **Tăng CHUNK_OVERLAP** lên 100-200 tokens để đảm bảo context liên tục
-3. **Tăng MAX_PATHS_PER_CHUNK** lên 5-10 để trích xuất nhiều relationships hơn
-
-Ví dụ cấu hình tối ưu:
-```bash
-export CHUNK_SIZE=4096
-export CHUNK_OVERLAP=100
-export MAX_PATHS_PER_CHUNK=5
-```
-
-## 📊 Giao diện Streamlit
+## 📊 Giao diện Streamlit (Updated)
 
 ### Tab 1: Query Interface
-- **Quick Queries**: Các câu hỏi mẫu về LLM agents
-- **Custom Query**: Nhập câu hỏi tùy chỉnh
-- **Real-time response**: Sử dụng GraphRAG để trả lời
+- **Real-time query processing**: Step-by-step progress indicator
+- **Final Response**: Kết quả cuối cùng từ LLM
+- **🆕 Debug Information**: 
+  - Source nodes used
+  - **Relevant text chunks** (from saved nodes)
+  - Related triplets
+  - Community information
+  - Query processing details
 
 ### Tab 2: Graph Analysis
+- **Triplets Graph**: Interactive visualization với Plotly
+- **Communities Graph**: Community structure visualization
 - Thống kê về knowledge graph
-- Hiển thị sample triplets
-- Community summaries (nếu có)
-- Neo4j connection status
+- Sample triplets và community summaries
 
-### Tab 3: Data Info
-- Thông tin về các file đã xử lý
-- Metadata của index
-- Build statistics
+### Sidebar Information:
+- Index metadata (timestamp, files processed)
+- **🆕 Nodes count**: Số lượng chunks đã lưu
+- Query settings (similarity top K)
 
-## 🔧 Troubleshooting
-
-### Lỗi "No pre-built index found"
-```bash
-# Chạy lại build index
-python build_index.py
-```
-
-### Lỗi Neo4j connection
-- Kiểm tra Neo4j service đang chạy
-- Kiểm tra thông tin kết nối trong `const.py`
-- Kiểm tra firewall/network
-
-### Lỗi OpenAI API
-- Kiểm tra API key trong `const.py`
-- Kiểm tra quota và billing
-- Kiểm tra network connection
-
-### Lỗi Embedding Model
-```bash
-# Download model manually nếu cần
-python -c "from llama_index.embeddings.huggingface import HuggingFaceEmbedding; HuggingFaceEmbedding(model_name='BAAI/bge-small-en-v1.5')"
-```
-
-### Lỗi "No data found in Neo4j"
-- Chạy lại `python build_index.py`
-- Kiểm tra log để xem có lỗi trong quá trình build không
-
-## 📁 Cấu trúc thư mục
+## 📁 Cấu trúc thư mục (Updated)
 
 ```
 .
-├── app.py                      # Streamlit query interface
-├── build_index.py             # Index building script (MAIN)
-├── build_utils.py             # Build-specific utilities
-├── utils.py                   # Shared utility functions
-├── const.py                   # Configuration constants
-├── graph_rag_extractor.py     # Custom KG extractor
-├── graph_rag_store.py         # Custom graph store
-├── graph_rag_query_engine.py  # Custom query engine
-├── html_to_md_converter.py    # HTML to Markdown converter
-├── data/                      # Input documents
+├── app.py                         # Streamlit query interface
+├── build_index.py                 # Index building script (MAIN)
+├── build_utils.py                 # Build-specific utilities
+├── utils.py                       # Shared utility functions
+├── const.py                       # Configuration constants
+├── graph_rag_extractor.py         # Custom KG extractor
+├── graph_rag_store.py             # Custom graph store
+├── graph_rag_query_engine.py      # Custom query engine (Updated)
+├── html_to_md_converter.py        # HTML to Markdown converter
+├── data/                          # Input documents
 │   ├── *.html
 │   └── *.md
-├── index_data/                # Generated index metadata
-│   ├── index_metadata.pkl
-│   └── files_df.pkl
-└── README.md                  # This file
+├── index_data/                    # Generated index metadata
+│   ├── index_metadata.pkl         # Index metadata
+│   ├── files_df.pkl              # Files dataframe
+│   └── 🆕 nodes.pkl              # Original text chunks
+├── tests/                         # Test files
+│   ├── test_config.py
+│   ├── test_neo4j_connection.py
+│   └── 🆕 test_nodes_integration.py
+└── README.md                      # This file
 ```
-
-## 📝 Logs và Monitoring
-
-### Build Index Logs
-Script `build_index.py` sẽ hiển thị progress với timestamp và màu sắc:
-```
-🕸️ GraphRAG Index Builder
-==================================================
-
-📋 Configuration:
-  - Number of markdown files: 50
-  - Number of nodes to process: ALL (no limit)
-  - Chunk size: 500 (can be optimized for GPT-4o-mini)
-  - Chunk overlap: 20
-  - Max paths per chunk: 2
-  - Similarity top K: 10
-  - Model: gpt-4o-mini (128K context window)
-
-[14:30:15] Step 1/10: Converting HTML files to Markdown...
-[14:30:16] Step 2/10: Loading markdown files...
-...
-[14:35:20] 🎉 GraphRAG Index Building Completed Successfully!
-
-📊 Statistics:
-  - Total triplets in graph: 1,234
-  - Documents processed: 45
-  - Nodes created: 156
-  - Nodes processed: ALL (156)
-```
-
-### Streamlit Logs
-Streamlit app sẽ hiển thị status trong sidebar và main interface.
-
-## 🎯 Tips sử dụng
-
-1. **Lần đầu setup**: Chạy với ít files để test (set `NUM_MARKDOWN_FILES=5`)
-2. **Production**: Sử dụng cấu hình mặc định đã tối ưu
-3. **Performance**: Monitor Neo4j memory usage
-4. **Queries**: Bắt đầu với quick queries trước khi dùng custom queries
-5. **Embedding**: Model sẽ tự download lần đầu (~133MB)
-
-## 🔬 Technical Details
-
-### Models Used:
-- **LLM**: GPT-4o-mini (128K context, cost-effective)
-- **Embedding**: BAAI/bge-small-en-v1.5 (768-dim vectors)
-- **Graph DB**: Neo4j (property graph)
-
-### Processing Pipeline:
-1. **Document Processing**: HTML → Markdown → Chunks
-2. **Knowledge Extraction**: LLM → Entities + Relations
-3. **Graph Storage**: Neo4j → Triplets + Communities
-4. **Query Processing**: Embedding → Similarity → Context → LLM
-
-### Performance Optimizations:
-- Configurable chunk size (default 500 tokens, can be increased)
-- Batch processing for efficiency
-- No node limits for complete indexing
-- Optimized prompts for better extraction
-- Potential for larger chunks with GPT-4o-mini's 128K context
-
-## 🆘 Support
-
-Nếu gặp vấn đề:
-1. Kiểm tra logs trong terminal
-2. Kiểm tra Neo4j browser tại `http://localhost:7474`
-3. Kiểm tra Streamlit logs
-4. Restart Neo4j service nếu cần
-5. Kiểm tra disk space cho embedding model
-
----
-
-**Happy GraphRAG-ing! 🕸️**
-
-

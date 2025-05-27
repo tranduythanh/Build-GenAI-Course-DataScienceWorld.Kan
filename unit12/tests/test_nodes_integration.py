@@ -18,7 +18,7 @@ def test_nodes_integration():
     
     # Test 1: Check if index data exists
     print("\n📋 Test 1: Checking index data...")
-    metadata, files_df, nodes = load_index_data()
+    metadata, files_df, nodes = load_index_data("../index_data")
     
     if metadata is None:
         print("❌ No index data found. Please run 'python build_index.py' first.")
@@ -36,7 +36,7 @@ def test_nodes_integration():
         
         # Try loading nodes separately
         print("🔍 Trying to load nodes separately...")
-        nodes = load_nodes()
+        nodes = load_nodes("../index_data")
         
         if nodes is None:
             print("❌ No nodes.pkl file found. Nodes were not saved during build.")
@@ -63,7 +63,7 @@ def test_nodes_integration():
     
     # Test 4: Check file sizes
     print("\n💾 Test 4: Checking file sizes...")
-    index_dir = "./index_data"
+    index_dir = "../index_data"
     
     files_to_check = [
         "index_metadata.pkl",
@@ -92,7 +92,7 @@ def test_query_engine_with_nodes():
         from llama_index.core import PropertyGraphIndex
         
         # Load nodes
-        metadata, files_df, nodes = load_index_data()
+        metadata, files_df, nodes = load_index_data("../index_data")
         
         if nodes is None:
             print("❌ No nodes available for testing")
