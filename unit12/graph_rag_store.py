@@ -23,6 +23,58 @@ class GraphRAGStore(Neo4jPropertyGraphStore):
         """Set the LLM for community summary generation."""
         self.llm = llm
 
+    def get_triplets(self):
+        """Override the parent method to use compatible Cypher syntax."""
+        try:
+            # Simple Cypher query compatible with Neo4j 4.4
+            query = """
+            MATCH (a:Entity)-[r:RELATION]->(b:Entity)
+            RETURN a.name AS source_name, 
+                   a.type AS source_type,
+                   r.type AS relation_type, 
+                   r.description AS relation_description,
+                   b.name AS target_name,
+                   b.type AS target_type
+            """
+            
+            result = self.structured_query(query)
+            
+            # Convert to the expected format for LlamaIndex
+            from llama_index.core.graph_stores.types import EntityNode, Relation
+            
+            triplets = []
+            for record in result:
+                # Create source entity
+                source_entity = EntityNode(
+                    name=record['source_name'],
+                    label=record['source_type'],
+                    properties={}
+                )
+                
+                # Create target entity  
+                target_entity = EntityNode(
+                    name=record['target_name'],
+                    label=record['target_type'],
+                    properties={}
+                )
+                
+                # Create relation
+                relation = Relation(
+                    label=record['relation_type'],
+                    source_id=record['source_name'],
+                    target_id=record['target_name'],
+                    properties={'relationship_description': record['relation_description']}
+                )
+                
+                triplets.append((source_entity, relation, target_entity))
+            
+            print(f"✓ Retrieved {len(triplets)} triplets from Neo4j")
+            return triplets
+            
+        except Exception as e:
+            print(f"Error in get_triplets: {e}")
+            return []
+
     def generate_community_summary(self, text):
         """Generate summary for a given text using an LLM."""
         messages = [
