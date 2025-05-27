@@ -5,12 +5,11 @@ from collections import defaultdict
 
 from llama_index.graph_stores.neo4j import Neo4jPropertyGraphStore
 from llama_index.core.llms import ChatMessage
-from llama_index.core.llms.llm import LLM
-from llama_index.core.prompts import PromptTemplate
-from llama_index.core.prompts.default_prompts import (
-    DEFAULT_KG_TRIPLET_EXTRACT_PROMPT,
-)
-from llama_index.core.schema import TransformComponent, BaseNode
+
+import os
+from llama_index.llms.openai import OpenAI
+from llama_index.core import Settings
+from const import OPENAI_API_KEY, DEFAULT_MODEL, NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD
 
 class GraphRAGStore(Neo4jPropertyGraphStore):
     def __init__(self, *args, **kwargs):
@@ -111,3 +110,90 @@ class GraphRAGStore(Neo4jPropertyGraphStore):
         if not self.community_summary:
             self.build_communities()
         return self.community_summary
+    
+
+if __name__ == "__main__":    
+    # Example usage of GraphRAGStore
+    print("GraphRAGStore Example")
+    print("=" * 50)
+    
+    # Setup OpenAI LLM (real LLM)
+    print("Setting up OpenAI LLM...")
+    try:
+        os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
+        llm = OpenAI(model=DEFAULT_MODEL)
+        Settings.llm = llm
+        
+        # Test LLM connection
+        print("Testing LLM connection...")
+        test_response = llm.complete("What is 2+2?")
+        print(f"LLM Test Response: {test_response}")
+        print("✓ OpenAI LLM initialized successfully")
+        
+    except Exception as e:
+        print(f"Warning: Could not initialize OpenAI LLM: {e}")
+        print("Using mock LLM for demonstration...")
+        
+        # Fallback mock LLM
+        class MockLLM:
+            def chat(self, messages):
+                return "This is a mock community summary based on the provided relationships."
+        
+        llm = MockLLM()
+    
+    try:
+        # Initialize GraphRAGStore with real Neo4j parameters
+        print("\nInitializing GraphRAGStore...")
+        graph_store = GraphRAGStore(
+            username=NEO4J_USERNAME,
+            password=NEO4J_PASSWORD, 
+            url=NEO4J_URI,
+            database="neo4j"
+        )
+        
+        # Set real LLM
+        graph_store.set_llm(llm)
+        
+        print("✓ GraphRAGStore initialized successfully")
+        print("✓ LLM set")
+        
+        # Test community summary generation
+        print("\nTesting community summary generation...")
+        sample_relationships = """
+        Apple Inc -> Steve Jobs -> founded_by -> Steve Jobs co-founded Apple Inc. and served as its visionary leader
+        Apple Inc -> Cupertino -> headquartered_in -> Apple Inc. is headquartered in Cupertino, California
+        Tim Cook -> Apple Inc -> CEO_of -> Tim Cook is the current CEO of Apple Inc.
+        """
+        
+        summary = graph_store.generate_community_summary(sample_relationships)
+        print(f"Generated summary: {summary}")
+        
+        # Example of how communities would be built
+        print("\nCommunity building process:")
+        print("- build_communities() method available")
+        print("- get_community_summaries() method available")
+        print("- generate_community_summary() method available")
+        
+        # Show configuration
+        print(f"\nConfiguration:")
+        print(f"- Max cluster size: {graph_store.max_cluster_size}")
+        print(f"- LLM set: {graph_store.llm is not None}")
+        print(f"- LLM type: {type(graph_store.llm).__name__}")
+        print(f"- Community summaries initialized: {len(graph_store.community_summary)} communities")
+        
+        print("\nExample completed successfully!")
+        
+    except Exception as e:
+        print(f"Note: Full example requires Neo4j connection: {e}")
+        print("This is expected in a demo environment.")
+        
+        # Still demonstrate the class structure
+        print("\nClass structure demonstration:")
+        print("GraphRAGStore inherits from Neo4jPropertyGraphStore")
+        print("Main methods:")
+        print("- set_llm(llm): Set LLM for community summaries")
+        print("- build_communities(): Build and summarize communities")
+        print("- get_community_summaries(): Get all community summaries")
+        print("- generate_community_summary(text): Generate summary for text")
+        print(f"- Using real OpenAI LLM: {type(llm).__name__}")
+        

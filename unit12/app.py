@@ -12,9 +12,7 @@ from typing import Any
 
 # Local imports
 from const import (
-    KG_TRIPLET_EXTRACT_TMPL, 
-    entity_pattern, 
-    relationship_pattern,
+    CSV_KG_EXTRACT_TMPL,
     NEO4J_URI, 
     NEO4J_USERNAME, 
     NEO4J_PASSWORD,
@@ -27,7 +25,7 @@ from const import (
     DEFAULT_MAX_PATHS_PER_CHUNK,
     DEFAULT_SIMILARITY_TOP_K
 )
-from graph_rag_extractor import GraphRAGExtractor
+from graph_rag_extractor import GraphRAGExtractor, parse_csv_triplets_fn
 from graph_rag_store import GraphRAGStore
 from graph_rag_query_engine import GraphRAGQueryEngine
 
@@ -40,9 +38,8 @@ from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 
 def parse_fn(response_str: str) -> Any:
     """Parse function for extracting entities and relationships from LLM response."""
-    entities = re.findall(entity_pattern, response_str)
-    relationships = re.findall(relationship_pattern, response_str)
-    return entities, relationships
+    # Use the improved CSV parsing function from graph_rag_extractor
+    return parse_csv_triplets_fn(response_str)
 
 
 def load_data(num_samples: int = 50):
@@ -98,7 +95,7 @@ def setup_kg_extractor(llm):
     print("Setting up KG extractor...")
     kg_extractor = GraphRAGExtractor(
         llm=llm,
-        extract_prompt=KG_TRIPLET_EXTRACT_TMPL,
+        extract_prompt=CSV_KG_EXTRACT_TMPL,
         max_paths_per_chunk=DEFAULT_MAX_PATHS_PER_CHUNK,
         parse_fn=parse_fn,
     )

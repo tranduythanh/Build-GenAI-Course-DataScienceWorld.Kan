@@ -210,6 +210,17 @@ from collections import defaultdict
 from llama_index.core.llms import ChatMessage
 from llama_index.graph_stores.neo4j import Neo4jPropertyGraphStore
 
+# Import GraphRAG components
+from graph_rag_extractor import GraphRAGExtractor, parse_csv_triplets_fn
+from graph_rag_store import GraphRAGStore
+from graph_rag_query_engine import GraphRAGQueryEngine
+from const import (
+    CSV_KG_EXTRACT_TMPL,
+    NEO4J_URI,
+    NEO4J_USERNAME, 
+    NEO4J_PASSWORD
+)
+
 llm = OpenAI(
     model="gpt-4o-mini"
 )
@@ -295,14 +306,13 @@ len(nodes)
 
 
 def parse_fn(response_str: str) -> Any:
-    entities = re.findall(entity_pattern, response_str)
-    relationships = re.findall(relationship_pattern, response_str)
-    return entities, relationships
+    # Use the improved CSV parsing function from graph_rag_extractor
+    return parse_csv_triplets_fn(response_str)
 
 
 kg_extractor = GraphRAGExtractor(
     llm=llm,
-    extract_prompt=KG_TRIPLET_EXTRACT_TMPL,
+    extract_prompt=CSV_KG_EXTRACT_TMPL,
     max_paths_per_chunk=2,
     parse_fn=parse_fn,
 )
