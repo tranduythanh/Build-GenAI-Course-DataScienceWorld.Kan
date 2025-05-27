@@ -22,7 +22,7 @@ This notebook updates the GraphRAG pipeline to v2. If you haven’t checked v1 y
 `graspologic` is used to use hierarchical_leiden for building communities.
 """
 
-!pip install llama-index==0.12.2 llama-index-graph-stores-neo4j==0.4.0 graspologic==3.3.0 numpy==1.24.4 scipy==1.12.0 future==1.0.0 llama-index-llms-together==0.3.0 llama-index-embeddings-huggingface
+# !pip install llama-index==0.12.2 llama-index-graph-stores-neo4j==0.4.0 graspologic==3.3.0 numpy==1.24.4 scipy==1.12.0 future==1.0.0 llama-index-llms-openai llama-index-embeddings-huggingface
 
 # !pip install jax upgrade
 
@@ -57,19 +57,15 @@ documents = [
 
 # os.environ["OPENAI_API_KEY"] = "sk-.."
 
-# from llama_index.llms.openai import OpenAI
-
-# llm = OpenAI(model="gpt-4")
-
-from llama_index.llms.together import TogetherLLM
+from llama_index.llms.openai import OpenAI
 
 # set api key in env or in llm
 import os
-os.environ["TOGETHER_API_KEY"] = "524a0fda9f6199191bb6252d8c9d0f07edfb630ecaf91a2dbe76c95de4749d15"
+# Make sure to set your OpenAI API key in environment variables
+# os.environ["OPENAI_API_KEY"] = "your-openai-api-key-here"
 
-llm = TogetherLLM(
-    # model="meta-llama/Llama-3.3-70B-Instruct-Turbo-Free"
-    model = "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8"
+llm = OpenAI(
+    model="gpt-4o-mini"
 )
 
 llm.complete("What is the capital of Vietnam?")
@@ -214,9 +210,8 @@ from collections import defaultdict
 from llama_index.core.llms import ChatMessage
 from llama_index.graph_stores.neo4j import Neo4jPropertyGraphStore
 
-llm = TogetherLLM(
-    # model="meta-llama/Llama-3.3-70B-Instruct-Turbo-Free"
-    model = "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8"
+llm = OpenAI(
+    model="gpt-4o-mini"
 )
 
 

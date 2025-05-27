@@ -18,7 +18,7 @@ from const import (
     NEO4J_URI, 
     NEO4J_USERNAME, 
     NEO4J_PASSWORD,
-    TOGETHER_API_KEY,
+    OPENAI_API_KEY,
     DEFAULT_MODEL,
     EMBEDDING_MODEL,
     DATA_URL,
@@ -34,7 +34,7 @@ from graph_rag_query_engine import GraphRAGQueryEngine
 # LlamaIndex imports
 from llama_index.core import Document, PropertyGraphIndex
 from llama_index.core.node_parser import SentenceSplitter
-from llama_index.llms.together import TogetherLLM
+from llama_index.llms.openai import OpenAI
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 
 
@@ -61,10 +61,10 @@ def load_data(num_samples: int = 50):
 
 def setup_llm():
     """Setup and configure the language model."""
-    print("Setting up Together LLM...")
-    os.environ["TOGETHER_API_KEY"] = TOGETHER_API_KEY
+    print("Setting up OpenAI LLM...")
+    os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
     
-    llm = TogetherLLM(model=DEFAULT_MODEL)
+    llm = OpenAI(model=DEFAULT_MODEL)
     
     # Test the LLM
     print("Testing LLM connection...")

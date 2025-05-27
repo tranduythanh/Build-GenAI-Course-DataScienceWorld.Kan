@@ -30,7 +30,7 @@ This application implements the GraphRAG pipeline that combines the strengths of
 
 - Python 3.8+
 - Neo4j database (cloud or local)
-- Together API key for LLM access
+- OpenAI API key for LLM access
 
 ## Installation
 
@@ -74,6 +74,7 @@ make setup
 make install          # Install dependencies
 make neo4j-start      # Start Neo4j
 make test-connection  # Test connection
+make test            # Run unit tests
 make run              # Run application
 ```
 
@@ -82,7 +83,7 @@ make run              # Run application
 Update the constants in `const.py`:
 
 - **Neo4j Database**: Update `NEO4J_URI`, `NEO4J_USERNAME`, `NEO4J_PASSWORD`
-- **API Keys**: Update `TOGETHER_API_KEY`
+- **API Keys**: Update `OPENAI_API_KEY`
 - **Model Settings**: Modify `DEFAULT_MODEL` if needed
 
 ## Usage
@@ -101,7 +102,12 @@ Update the constants in `const.py`:
 
 3. **Test Neo4j connection:**
    ```bash
-   python test_neo4j_connection.py
+   make test-connection
+   ```
+
+4. **Run unit tests:**
+   ```bash
+   make test
    ```
 
 ### Basic Usage

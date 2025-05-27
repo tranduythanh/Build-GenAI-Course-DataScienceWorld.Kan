@@ -49,10 +49,10 @@ NEO4J_USERNAME = get_env_var("NEO4J_USERNAME", "neo4j")
 NEO4J_PASSWORD = get_env_var("NEO4J_PASSWORD", "password")
 
 # API Configuration
-TOGETHER_API_KEY = get_env_var("TOGETHER_API_KEY", "524a0fda9f6199191bb6252d8c9d0f07edfb630ecaf91a2dbe76c95de4749d15")
+OPENAI_API_KEY = get_env_var("OPENAI_API_KEY")
 
 # Model Configuration
-DEFAULT_MODEL = "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8"
+DEFAULT_MODEL = "gpt-4o-mini"
 EMBEDDING_MODEL = "BAAI/bge-small-en-v1.5"
 
 # Data Configuration
