@@ -5,32 +5,23 @@ services:
     image: neo4j:5.15-community
     container_name: neo4j-graphrag
     ports:
-      - "7474:7474"  # HTTP
-      - "7687:7687"  # Bolt
+      - "7474:7474"
+      - "7687:7687"
     volumes:
       - neo4j_data:/data
       - neo4j_logs:/logs
       - neo4j_import:/var/lib/neo4j/import
       - neo4j_plugins:/plugins
     environment:
-      # Authentication
       - NEO4J_AUTH=neo4j/password
-      
-      # Memory settings
       - NEO4J_dbms_memory_heap_initial__size=1G
       - NEO4J_dbms_memory_heap_max__size=2G
-      
-    healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider localhost:7474 || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 40s
-    
-    restart: unless-stopped
+      - NEO4JLABS_PLUGINS=["apoc"]
+      - NEO4J_apoc_import_file_enabled=true
+      - NEO4J_dbms_security_procedures_unrestricted=apoc.*
 
 volumes:
   neo4j_data:
   neo4j_logs:
   neo4j_import:
-  neo4j_plugins: 
+  neo4j_plugins:
