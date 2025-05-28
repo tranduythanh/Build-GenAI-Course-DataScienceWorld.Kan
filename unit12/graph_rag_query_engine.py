@@ -34,17 +34,35 @@ class GraphRAGQueryEngine(CustomQueryEngine):
 
         # Step 2: Get communities
         print("🏘️ Step 2: Retrieving entity communities...")
-        print(f"🔍 Debug: Entity info available: {self.graph_store.entity_info is not None}")
+        print(f"\tDebug: Entity info available: {self.graph_store.entity_info is not None}")
+        print(f"\tDebug: Entity info type: {type(self.graph_store.entity_info)}")
+        print(f"\tDebug: GraphRAGStore object ID: {id(self.graph_store)}")
+        
         if hasattr(self.graph_store, 'entity_info') and self.graph_store.entity_info:
-            print(f"🔍 Debug: Entity info size: {len(self.graph_store.entity_info)}")
-            print(f"🔍 Debug: Sample entities in info: {list(self.graph_store.entity_info.keys())[:5]}")
+            print(f"\tDebug: Entity info size: {len(self.graph_store.entity_info)}")
+            print(f"\tDebug: Sample entities in info: {list(self.graph_store.entity_info.keys())[:5]}")
         else:
             print("⚠️ Warning: No entity_info found, attempting to build communities...")
+            print(f"\tDebug: Forcing load from cache first...")
+            # Try to force load from cache again
             try:
-                self.graph_store.build_communities()
-                print(f"✓ Communities built, entity_info size: {len(self.graph_store.entity_info) if self.graph_store.entity_info else 0}")
+                load_success = self.graph_store.load_community_summaries_from_file()
+                print(f"\tDebug: Force load result: {load_success}")
+                if load_success:
+                    print(f"\tDebug: After force load - entity_info: {len(self.graph_store.entity_info) if self.graph_store.entity_info else 0} entities")
             except Exception as e:
-                print(f"❌ Error building communities: {e}")
+                print(f"\tDebug: Force load failed: {e}")
+            
+            # If still no entity_info, build communities
+            if not self.graph_store.entity_info:
+                print("\tDebug: Still no entity_info, building communities...")
+                try:
+                    self.graph_store.build_communities()
+                    print(f"✓ Communities built, entity_info size: {len(self.graph_store.entity_info) if self.graph_store.entity_info else 0}")
+                except Exception as e:
+                    print(f"❌ Error building communities: {e}")
+            else:
+                print(f"\tDebug: Force load successful, entity_info size: {len(self.graph_store.entity_info)}")
         
         community_ids = self.retrieve_entity_communities(
             self.graph_store.entity_info, entities
@@ -54,11 +72,15 @@ class GraphRAGQueryEngine(CustomQueryEngine):
         # Step 3: Get community summaries
         print("📚 Step 3: Loading community summaries...")
         community_summaries = self.graph_store.get_community_summaries()
-        print(f"🔍 Debug: Total available communities: {len(community_summaries)}")
-        print(f"🔍 Debug: Available community IDs: {list(community_summaries.keys())}")
-        print(f"🔍 Debug: Looking for community IDs: {community_ids}")
+        print(f"\tDebug: Total available communities: {len(community_summaries)}")
+        print(f"\tDebug: Available community IDs: {list(community_summaries.keys())}")
+        print(f"\tDebug: Looking for community IDs: {community_ids}")
         
-        relevant_summaries = {id: summary for id, summary in community_summaries.items() if id in community_ids}
+        # Convert community_ids to strings to match the keys in community_summaries
+        community_ids_str = [str(id) for id in community_ids]
+        print(f"\tDebug: Community IDs as strings: {community_ids_str}")
+        
+        relevant_summaries = {id: summary for id, summary in community_summaries.items() if id in community_ids_str}
         print(f"✓ Processing {len(relevant_summaries)} community summaries")
         
         if len(relevant_summaries) == 0 and len(community_ids) > 0:
@@ -67,7 +89,7 @@ class GraphRAGQueryEngine(CustomQueryEngine):
             try:
                 self.graph_store.build_communities()
                 community_summaries = self.graph_store.get_community_summaries()
-                relevant_summaries = {id: summary for id, summary in community_summaries.items() if id in community_ids}
+                relevant_summaries = {id: summary for id, summary in community_summaries.items() if id in community_ids_str}
                 print(f"✓ After building: Processing {len(relevant_summaries)} community summaries")
             except Exception as e:
                 print(f"❌ Error building communities: {e}")
@@ -77,23 +99,66 @@ class GraphRAGQueryEngine(CustomQueryEngine):
         relevant_chunks = self.get_relevant_chunks(query_str, entities)
         print(f"✓ Found {len(relevant_chunks)} relevant text chunks")
         
-        # Step 4: Generate answers from each community
+        # Step 4: Generate answers from communities (OPTIMIZED - batch processing)
         print("🤖 Step 4: Generating answers from communities...")
+        
+        # Limit to top 10 best communities based on relevance
+        if len(relevant_summaries) > 10:
+            print(f"  ⚡ Limiting from {len(relevant_summaries)} to top 10 communities for efficiency")
+            # Convert to list of tuples for sorting
+            summary_items = list(relevant_summaries.items())
+            # Sort by summary length (longer summaries likely more relevant) 
+            # and take top 10
+            summary_items.sort(key=lambda x: len(x[1]), reverse=True)
+            relevant_summaries = dict(summary_items[:10])
+        
         community_answers = []
-        for i, (id, community_summary) in enumerate(relevant_summaries.items()):
-            print(f"  Processing community {id} ({i+1}/{len(relevant_summaries)})...")
-            answer = self.generate_answer_from_summary(community_summary, query_str)
-            community_answers.append(answer)
-            print(f"  ✓ Generated answer for community {id}")
+        if relevant_summaries:
+            # Batch all community summaries into a single LLM call
+            print(f"  📦 Processing {len(relevant_summaries)} communities in a single batch call...")
+            
+            # Prepare batch prompt with all community summaries
+            batch_prompt_parts = []
+            for i, (community_id, summary) in enumerate(relevant_summaries.items(), 1):
+                batch_prompt_parts.append(f"Community {community_id}:\n{summary}")
+            
+            batch_summaries = "\n\n---\n\n".join(batch_prompt_parts)
+            
+            print(f"  📤 Sending batch request to LLM for {len(relevant_summaries)} communities...")
+            batch_answer = self.generate_batch_answer_from_summaries(batch_summaries, query_str)
+            print(f"  📥 Received batch response from LLM")
+            print(f"  ✓ Generated batch answer (length: {len(batch_answer)} chars)")
+            
+            community_answers = [batch_answer]
+        else:
+            print("  ⚠️ No relevant communities found")
 
-        # Step 4.5: Generate answers from relevant chunks (NEW!)
+        # Step 4.5: Generate answers from relevant chunks (limit to 3)
         print("📝 Step 4.5: Generating answers from text chunks...")
         chunk_answers = []
-        for i, chunk in enumerate(relevant_chunks[:3]):  # Limit to top 3 chunks
-            print(f"  Processing chunk {i+1}/{min(3, len(relevant_chunks))}...")
-            answer = self.generate_answer_from_chunk(chunk, query_str)
-            chunk_answers.append(answer)
-            print(f"  ✓ Generated answer from chunk {i+1}")
+        
+        # Limit to top 3 chunks and batch process them
+        top_chunks = relevant_chunks[:3]
+        if top_chunks:
+            print(f"  📦 Processing {len(top_chunks)} chunks in a single batch call...")
+            
+            # Prepare batch prompt with all chunks
+            batch_chunk_parts = []
+            for i, chunk in enumerate(top_chunks, 1):
+                chunk_text = chunk['text']
+                score = chunk['score']
+                batch_chunk_parts.append(f"Text Chunk {i} (Relevance Score: {score}):\n{chunk_text}")
+            
+            batch_chunks = "\n\n---\n\n".join(batch_chunk_parts)
+            
+            print(f"  📤 Sending batch chunk request to LLM for {len(top_chunks)} chunks...")
+            batch_chunk_answer = self.generate_batch_answer_from_chunks(batch_chunks, query_str)
+            print(f"  📥 Received batch chunk response from LLM")
+            print(f"  ✓ Generated batch chunk answer (length: {len(batch_chunk_answer)} chars)")
+            
+            chunk_answers = [batch_chunk_answer]
+        else:
+            print("  ⚠️ No relevant chunks found")
 
         # Step 5: Aggregate final answer
         print("🔗 Step 5: Aggregating final answer...")
@@ -108,12 +173,12 @@ class GraphRAGQueryEngine(CustomQueryEngine):
         entities = set()
         
         try:
-            print(f"🔍 Debug: Trying retriever approach...")
+            print(f"\tDebug: Trying retriever approach...")
             # First try the original retriever approach
             nodes_retrieved = self.index.as_retriever(
                 similarity_top_k=similarity_top_k
             ).retrieve(query_str)
-            print(f"🔍 Debug: Retrieved {len(nodes_retrieved)} nodes from index")
+            print(f"\tDebug: Retrieved {len(nodes_retrieved)} nodes from index")
 
             # Try to extract entities from node text using the original pattern
             pattern = (
@@ -121,11 +186,11 @@ class GraphRAGQueryEngine(CustomQueryEngine):
             )
 
             for i, node in enumerate(nodes_retrieved):
-                print(f"🔍 Debug: Node {i} text: {node.text[:100]}...")
+                print(f"\tDebug: Node {i} text: {node.text[:100]}...")
                 matches = re.findall(
                     pattern, node.text, re.MULTILINE | re.IGNORECASE
                 )
-                print(f"🔍 Debug: Found {len(matches)} matches in node {i}")
+                print(f"\tDebug: Found {len(matches)} matches in node {i}")
 
                 for match in matches:
                     subject = match[0]
@@ -133,11 +198,11 @@ class GraphRAGQueryEngine(CustomQueryEngine):
                     entities.add(subject)
                     entities.add(obj)
             
-            print(f"🔍 Debug: Entities from retriever: {list(entities)[:5]}{'...' if len(entities) > 5 else ''}")
+            print(f"\tDebug: Entities from retriever: {list(entities)[:5]}{'...' if len(entities) > 5 else ''}")
             
             # If no entities found from retriever, search Neo4j directly
             if not entities:
-                print(f"🔍 Debug: No entities from retriever, trying direct Neo4j search...")
+                print(f"\tDebug: No entities from retriever, trying direct Neo4j search...")
                 entities = self._search_entities_in_graph(query_str, similarity_top_k)
                 
         except Exception as e:
@@ -160,7 +225,7 @@ class GraphRAGQueryEngine(CustomQueryEngine):
             query_words = [word.strip().lower() for word in query_str.split() 
                           if word.strip().lower() not in stop_words and len(word.strip()) > 2]
             
-            print(f"🔍 Debug: Query words after filtering: {query_words}")
+            print(f"\tDebug: Query words after filtering: {query_words}")
             
             if not query_words:
                 print("⚠️ Warning: No meaningful query words found")
@@ -168,7 +233,7 @@ class GraphRAGQueryEngine(CustomQueryEngine):
             
             # Search for entities whose names or descriptions contain query terms
             for word in query_words:
-                print(f"🔍 Debug: Searching for word: '{word}'")
+                print(f"\tDebug: Searching for word: '{word}'")
                 # Use CONTAINS for partial matching (case-insensitive)
                 cypher_query = """
                 MATCH (e:Entity)
@@ -189,14 +254,14 @@ class GraphRAGQueryEngine(CustomQueryEngine):
                     entities.add(record['entity_name'])
                     word_entities.append(record['entity_name'])
                 
-                print(f"🔍 Debug: Found {len(word_entities)} entities for word '{word}': {word_entities[:3]}{'...' if len(word_entities) > 3 else ''}")
+                print(f"\tDebug: Found {len(word_entities)} entities for word '{word}': {word_entities[:3]}{'...' if len(word_entities) > 3 else ''}")
             
-            print(f"🔍 Debug: Total entities from direct search: {len(entities)}")
+            print(f"\tDebug: Total entities from direct search: {len(entities)}")
             
             # Also search for entities connected to entities that match query terms
             if entities:
                 entity_list = list(entities)[:5]  # Limit to avoid too large queries
-                print(f"🔍 Debug: Searching for connected entities to: {entity_list}")
+                print(f"\tDebug: Searching for connected entities to: {entity_list}")
                 cypher_query = """
                 MATCH (e1:Entity)-[r:RELATION]-(e2:Entity)
                 WHERE e1.name IN $entity_names OR e2.name IN $entity_names
@@ -215,7 +280,7 @@ class GraphRAGQueryEngine(CustomQueryEngine):
                     entities.add(record['entity2'])
                     connected_entities.extend([record['entity1'], record['entity2']])
                 
-                print(f"🔍 Debug: Found {len(set(connected_entities))} connected entities")
+                print(f"\tDebug: Found {len(set(connected_entities))} connected entities")
                     
         except Exception as e:
             print(f"Error searching entities in graph: {e}")
@@ -251,8 +316,8 @@ class GraphRAGQueryEngine(CustomQueryEngine):
             else:
                 missing_entities.append(entity)
 
-        print(f"🔍 Debug: Found entities in communities: {found_entities[:3]}{'...' if len(found_entities) > 3 else ''}")
-        print(f"🔍 Debug: Missing entities: {missing_entities[:3]}{'...' if len(missing_entities) > 3 else ''}")
+        print(f"\tDebug: Found entities in communities: {found_entities[:3]}{'...' if len(found_entities) > 3 else ''}")
+        print(f"\tDebug: Missing entities: {missing_entities[:3]}{'...' if len(missing_entities) > 3 else ''}")
         
         return list(set(community_ids))
 
@@ -279,6 +344,34 @@ class GraphRAGQueryEngine(CustomQueryEngine):
         time.sleep(0.5)  # Reduced sleep time for better performance
         cleaned_response = re.sub(r"^assistant:\s*", "", str(response)).strip()
         print(f"    ✓ Generated answer (length: {len(cleaned_response)} chars)")
+        return cleaned_response
+
+    def generate_batch_answer_from_summaries(self, batch_summaries, query):
+        """Generate an answer from multiple community summaries in a single LLM call."""
+        print(f"    🤖 Generating batch answer from {batch_summaries.count('Community')} community summaries...")
+        
+        prompt = (
+            f"You are provided with multiple community summaries from a knowledge graph. "
+            f"Please analyze all the information and provide a comprehensive answer to the query.\n\n"
+            f"Community Summaries:\n{batch_summaries}\n\n"
+            f"Query: {query}\n\n"
+            f"Please provide a well-structured answer that synthesizes information from all relevant communities."
+        )
+        
+        messages = [
+            ChatMessage(role="system", content=prompt),
+            ChatMessage(
+                role="user", 
+                content="Please analyze all the community information and provide a comprehensive answer to the query."
+            ),
+        ]
+        
+        print(f"    📤 Sending batch request to LLM...")
+        response = self.llm.chat(messages)
+        print(f"    📥 Received batch response from LLM")
+        
+        cleaned_response = re.sub(r"^assistant:\s*", "", str(response)).strip()
+        print(f"    ✓ Generated batch answer (length: {len(cleaned_response)} chars)")
         return cleaned_response
 
     def aggregate_answers(self, community_answers):
@@ -384,6 +477,34 @@ class GraphRAGQueryEngine(CustomQueryEngine):
         time.sleep(0.5)
         cleaned_response = re.sub(r"^assistant:\s*", "", str(response)).strip()
         print(f"    ✓ Generated chunk answer (length: {len(cleaned_response)} chars)")
+        return cleaned_response
+
+    def generate_batch_answer_from_chunks(self, batch_chunks, query):
+        """Generate an answer from multiple text chunks in a single LLM call."""
+        print(f"    🤖 Generating batch answer from {batch_chunks.count('Text Chunk')} text chunks...")
+        
+        prompt = (
+            f"You are provided with multiple text chunks from a knowledge graph. "
+            f"Please analyze all the information and provide a comprehensive answer to the query.\n\n"
+            f"Text Chunks:\n{batch_chunks}\n\n"
+            f"Query: {query}\n\n"
+            f"Please provide a well-structured answer that synthesizes information from all relevant text chunks."
+        )
+        
+        messages = [
+            ChatMessage(role="system", content=prompt),
+            ChatMessage(
+                role="user", 
+                content="Please analyze all the text chunk information and provide a comprehensive answer to the query."
+            ),
+        ]
+        
+        print(f"    📤 Sending batch request to LLM...")
+        response = self.llm.chat(messages)
+        print(f"    📥 Received batch response from LLM")
+        
+        cleaned_response = re.sub(r"^assistant:\s*", "", str(response)).strip()
+        print(f"    ✓ Generated batch answer (length: {len(cleaned_response)} chars)")
         return cleaned_response
 
 if __name__ == "__main__":

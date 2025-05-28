@@ -3,10 +3,13 @@
 import streamlit as st
 import traceback
 import pandas as pd
+import os
+import time
 
 # Local imports
 from const import (
-    DEFAULT_SIMILARITY_TOP_K
+    DEFAULT_SIMILARITY_TOP_K,
+    DEFAULT_COMMUNITY_FOLDER
 )
 
 # Import utility functions for querying
@@ -61,9 +64,35 @@ def main():
     st.sidebar.write(f"**Index type:** {metadata.get('index_type', 'Unknown')}")
     st.sidebar.write(f"**Nodes (chunks):** {metadata.get('nodes_count', 'Unknown')}")
     
-    # Query configuration
-    st.sidebar.header("⚙️ Query Settings")
-    similarity_top_k = st.sidebar.slider("Similarity top K", 5, 20, DEFAULT_SIMILARITY_TOP_K)
+    # Community Summary Status
+    st.sidebar.header("🏘️ Community Status")
+
+    # Ensure community folder exists
+    os.makedirs(DEFAULT_COMMUNITY_FOLDER, exist_ok=True)
+
+    community_file_path = os.path.join(DEFAULT_COMMUNITY_FOLDER, "summary.json")
+    
+    if os.path.exists(community_file_path):
+        st.sidebar.success("✅ Community summaries cached")
+        try:
+            import json
+            with open(community_file_path, 'r') as f:
+                data = json.load(f)
+                community_count = len(data.get('community_summaries', {}))
+                st.sidebar.write(f"**Communities:** {community_count}")
+        except:
+            st.sidebar.warning("⚠️ Cache file corrupted")
+    else:
+        st.sidebar.warning("⚠️ No community cache found")
+        st.sidebar.info("Communities will be built from Neo4j")
+    
+    # Navigation Menu
+    st.sidebar.header("🧭 Navigation")
+    selected_page = st.sidebar.radio(
+        "Select function:",
+        ["🔍 Query Interface", "📊 Graph Analysis"],
+        index=0
+    )
     
     # Initialize session state
     if 'query_engine' not in st.session_state:
@@ -74,6 +103,12 @@ def main():
         st.session_state.nodes = None
     if 'index_loaded' not in st.session_state:
         st.session_state.index_loaded = False
+    if 'chat_history' not in st.session_state:
+        st.session_state.chat_history = []
+    if 'current_status' not in st.session_state:
+        st.session_state.current_status = None
+    if 'input_key' not in st.session_state:
+        st.session_state.input_key = 0
     
     # Setup components if not already done
     if not st.session_state.index_loaded:
@@ -107,7 +142,7 @@ def main():
                 )
                 
                 # Setup query engine
-                query_engine = setup_query_engine(index, llm, similarity_top_k, nodes)
+                query_engine = setup_query_engine(index, llm, DEFAULT_SIMILARITY_TOP_K, nodes)
                 if not query_engine:
                     st.error("Failed to setup query engine")
                     return
@@ -126,10 +161,8 @@ def main():
                 st.error(traceback.format_exc())
                 return
     
-    # Main content area
-    tab1, tab2 = st.tabs(["🔍 Query Interface", "📊 Graph Analysis"])
-    
-    with tab1:
+    # Main content area - display based on sidebar selection
+    if selected_page == "🔍 Query Interface":
         st.header("💬 Query Your Knowledge Graph")
         
         if st.session_state.index_loaded and st.session_state.query_engine:
@@ -144,203 +177,124 @@ def main():
             - *What are the different types of memory in agent systems?*
             """)
             
-            st.divider()
+            # Process query logic (moved before display to handle state changes)
+            query_processed = False
             
-            # Simple query interface
+            # Display chat history first
+            if st.session_state.chat_history:
+                st.divider()
+                st.subheader("💬 Chat History")
+                
+                for i, chat in enumerate(st.session_state.chat_history):
+                    if chat['type'] == 'user':
+                        st.markdown(f"""
+                        <div style='background-color: #e3f2fd; padding: 10px; border-radius: 10px; margin: 10px 0;'>
+                        <strong>🙋‍♂️ You ({chat['timestamp']}):</strong><br>
+                        {chat['content']}
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                    elif chat['type'] == 'assistant':
+                        st.markdown(f"""
+                        <div style='background-color: #f1f8e9; padding: 10px; border-radius: 10px; margin: 10px 0;'>
+                        <strong>🤖 Assistant ({chat['timestamp']}):</strong>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                        # Show response content
+                        st.markdown(chat['content'])
+                        
+                        # Add debug info expander for each response
+                        if 'response_obj' in chat:
+                            with st.expander(f"🔍 Debug Info for answer {i//2 + 1}", expanded=False):
+                                response_obj = chat['response_obj']
+                                
+                                # Show source nodes if available
+                                if hasattr(response_obj, 'source_nodes') and response_obj.source_nodes:
+                                    st.write("**📚 Source Nodes Used:**")
+                                    for j, node in enumerate(response_obj.source_nodes):
+                                        with st.expander(f"Source Node {j+1} (Score: {getattr(node, 'score', 'N/A')})"):
+                                            st.write(f"**Content:** {node.text[:500]}...")
+                                            if hasattr(node, 'metadata'):
+                                                st.write(f"**Metadata:** {node.metadata}")
+                                
+                                # Show query processing details if available
+                                if hasattr(response_obj, 'metadata') and response_obj.metadata:
+                                    st.write("**⚙️ Query Processing Details:**")
+                                    st.json(response_obj.metadata)
+                        
+                    elif chat['type'] == 'error':
+                        st.markdown(f"""
+                        <div style='background-color: #ffebee; padding: 10px; border-radius: 10px; margin: 10px 0; border-left: 4px solid #f44336;'>
+                        <strong>❌ Error ({chat['timestamp']}):</strong><br>
+                        {chat['content']}
+                        </div>
+                        """, unsafe_allow_html=True)
+                    
+                    st.write("")  # Add spacing between messages
+            
+            # Query input interface - now at the bottom
+            st.divider()
+            st.subheader("✍️ Ask a new question")
+            
+            # Query input interface
             query_input = st.text_input(
                 "Enter your question:",
                 placeholder="e.g., What are the main components of LLM agents?",
-                key="query_input"
+                key=f"query_input_{st.session_state.input_key}"
             )
             
-            col1, col2 = st.columns([1, 4])
-            with col1:
-                query_button = st.button("🔍 Ask", type="primary", use_container_width=True)
+            # Ask button
+            query_button = st.button("🔍 Ask", type="primary", use_container_width=True)
             
+            # Process query
             if query_button and query_input.strip():
-                # Create a container for real-time updates
-                status_container = st.container()
-                response_container = st.container()
-                
-                with status_container:
-                    status_placeholder = st.empty()
-                    progress_bar = st.progress(0)
+                # Add user question to chat history
+                st.session_state.chat_history.append({
+                    'type': 'user',
+                    'content': query_input,
+                    'timestamp': time.strftime("%H:%M:%S")
+                })
                 
                 try:
-                    # Step 1: Initialize
-                    status_placeholder.info("🔍 Analyzing your question...")
-                    progress_bar.progress(20)
+                    # Show processing status
+                    status_placeholder = st.empty()
                     
-                    # Step 2: Entity extraction
-                    status_placeholder.info("🧠 Finding relevant entities in the knowledge graph...")
-                    progress_bar.progress(40)
+                    # Show initial processing message
+                    with status_placeholder.container():
+                        st.info("🔍 **Processing your question...**")
+                        st.write("- Searching in knowledge graph...")
+                        st.write("- Analyzing entities and relationships...")
                     
-                    # Step 3: Community search
-                    status_placeholder.info("🏘️ Searching through communities...")
-                    progress_bar.progress(60)
-                    
-                    # Step 4: Generate response
-                    status_placeholder.info("✍️ Generating response...")
-                    progress_bar.progress(80)
-                    
-                    # Execute query
+                    # Execute the actual query
                     response = st.session_state.query_engine.query(query_input)
                     
-                    # Step 5: Complete
-                    progress_bar.progress(100)
-                    status_placeholder.success("✅ Query completed successfully!")
+                    # Clear status immediately after getting response
+                    status_placeholder.empty()
                     
-                    # Display response with debug information
-                    with response_container:
-                        # Create tabs for response and debug info
-                        resp_tab1, resp_tab2 = st.tabs(["📝 Final Response", "🔍 Debug Information"])
-                        
-                        with resp_tab1:
-                            st.subheader("📝 Response:")
-                            st.write(response)
-                            
-                            # Add copy button
-                            if st.button("📋 Copy Response"):
-                                st.success("Response copied to clipboard!")
-                        
-                        with resp_tab2:
-                            st.subheader("🔍 Debug Information")
-                            
-                            # Show source nodes if available
-                            if hasattr(response, 'source_nodes') and response.source_nodes:
-                                st.write("**📚 Source Nodes Used:**")
-                                for i, node in enumerate(response.source_nodes):
-                                    with st.expander(f"Source Node {i+1} (Score: {getattr(node, 'score', 'N/A')})"):
-                                        st.write(f"**Content:** {node.text[:500]}...")
-                                        if hasattr(node, 'metadata'):
-                                            st.write(f"**Metadata:** {node.metadata}")
-                            
-                            # Show relevant chunks (NEW!)
-                            st.write("**📄 Relevant Text Chunks:**")
-                            try:
-                                if hasattr(st.session_state.query_engine, 'nodes') and st.session_state.query_engine.nodes:
-                                    # Get entities for chunk search
-                                    entities = []
-                                    try:
-                                        entities = st.session_state.query_engine.get_entities(query_input, similarity_top_k)
-                                    except:
-                                        pass
-                                    
-                                    # Get relevant chunks
-                                    relevant_chunks = st.session_state.query_engine.get_relevant_chunks(query_input, entities)
-                                    
-                                    if relevant_chunks:
-                                        st.write(f"Found {len(relevant_chunks)} relevant chunks:")
-                                        
-                                        chunk_debug_data = []
-                                        for i, chunk in enumerate(relevant_chunks[:5]):  # Show top 5
-                                            chunk_debug_data.append({
-                                                "ID": i + 1,
-                                                "Score": chunk['score'],
-                                                "Text Preview": chunk['text'][:200] + "..." if len(chunk['text']) > 200 else chunk['text'],
-                                                "Length": len(chunk['text']),
-                                                "Source": chunk['metadata'].get('source', 'Unknown') if chunk['metadata'] else 'Unknown'
-                                            })
-                                        
-                                        debug_chunks_df = pd.DataFrame(chunk_debug_data)
-                                        st.dataframe(debug_chunks_df, use_container_width=True)
-                                        st.write(f"*Showing top {len(chunk_debug_data)} chunks out of {len(relevant_chunks)} total*")
-                                    else:
-                                        st.write("No relevant chunks found based on keyword and entity matching.")
-                                else:
-                                    st.write("No nodes available for chunk analysis.")
-                                    
-                            except Exception as e:
-                                st.error(f"Error loading chunks: {e}")
-                            
-                            # Show relevant triplets
-                            st.write("**🔺 Relevant Triplets:**")
-                            try:
-                                # Get all triplets and filter for relevance
-                                all_triplets = st.session_state.graph_store.get_triplets()
-                                
-                                # Simple keyword matching for relevance
-                                query_keywords = query_input.lower().split()
-                                relevant_triplets = []
-                                
-                                for triplet in all_triplets:
-                                    entity1, relation, entity2 = triplet
-                                    entity1_name = entity1.name if hasattr(entity1, 'name') else str(entity1)
-                                    entity2_name = entity2.name if hasattr(entity2, 'name') else str(entity2)
-                                    relation_label = relation.label if hasattr(relation, 'label') else str(relation)
-                                    
-                                    # Check if any query keyword appears in the triplet
-                                    triplet_text = f"{entity1_name} {relation_label} {entity2_name}".lower()
-                                    if any(keyword in triplet_text for keyword in query_keywords):
-                                        relevant_triplets.append(triplet)
-                                
-                                if relevant_triplets:
-                                    triplet_debug_data = []
-                                    for i, (entity1, relation, entity2) in enumerate(relevant_triplets[:10]):  # Show top 10
-                                        triplet_debug_data.append({
-                                            "ID": i + 1,
-                                            "Subject": entity1.name if hasattr(entity1, 'name') else str(entity1),
-                                            "Predicate": relation.label if hasattr(relation, 'label') else str(relation),
-                                            "Object": entity2.name if hasattr(entity2, 'name') else str(entity2),
-                                            "Description": relation.properties.get('relationship_description', 'N/A') if hasattr(relation, 'properties') else 'N/A'
-                                        })
-                                    
-                                    debug_triplets_df = pd.DataFrame(triplet_debug_data)
-                                    st.dataframe(debug_triplets_df, use_container_width=True)
-                                    st.write(f"*Showing {len(relevant_triplets)} relevant triplets out of {len(all_triplets)} total*")
-                                else:
-                                    st.write("No directly relevant triplets found based on keyword matching.")
-                                    
-                            except Exception as e:
-                                st.error(f"Error loading triplets: {e}")
-                            
-                            # Show relevant communities
-                            st.write("**🏘️ Community Information:**")
-                            try:
-                                if hasattr(st.session_state.graph_store, 'get_community_summaries'):
-                                    communities = st.session_state.graph_store.get_community_summaries()
-                                    if communities:
-                                        st.write(f"Found {len(communities)} communities in the knowledge graph:")
-                                        
-                                        # Show community summaries that might be relevant
-                                        query_keywords = query_input.lower().split()
-                                        relevant_communities = []
-                                        
-                                        for community_id, summary in communities.items():
-                                            summary_lower = summary.lower()
-                                            if any(keyword in summary_lower for keyword in query_keywords):
-                                                relevant_communities.append((community_id, summary))
-                                        
-                                        if relevant_communities:
-                                            st.write(f"**Relevant Communities ({len(relevant_communities)}):**")
-                                            for community_id, summary in relevant_communities[:5]:  # Show top 5
-                                                with st.expander(f"Community {community_id}"):
-                                                    st.write(summary)
-                                        else:
-                                            st.write("No communities found with direct keyword matches.")
-                                            # Show first few communities as fallback
-                                            st.write("**Sample Communities:**")
-                                            for i, (community_id, summary) in enumerate(list(communities.items())[:3]):
-                                                with st.expander(f"Community {community_id}"):
-                                                    st.write(summary[:300] + "..." if len(summary) > 300 else summary)
-                                    else:
-                                        st.write("No community summaries available.")
-                                else:
-                                    st.write("Community functionality not available in current graph store.")
-                                    
-                            except Exception as e:
-                                st.error(f"Error loading communities: {e}")
-                            
-                            # Show query processing details if available
-                            if hasattr(response, 'metadata') and response.metadata:
-                                st.write("**⚙️ Query Processing Details:**")
-                                st.json(response.metadata)
-                            
+                    # Add response to chat history
+                    st.session_state.chat_history.append({
+                        'type': 'assistant',
+                        'content': str(response),
+                        'response_obj': response,
+                        'timestamp': time.strftime("%H:%M:%S")
+                    })
+                    
+                    # Clear the input by incrementing the key
+                    st.session_state.input_key += 1
+                    
+                    # Note: Do not try to clear the input as it causes Streamlit error
+                    # st.session_state.query_input = ""  # This line causes the error
+                    st.rerun()
+                    
                 except Exception as e:
-                    status_placeholder.error(f"❌ Error: {str(e)}")
-                    st.error(f"Detailed error: {e}")
-                    import traceback
-                    st.code(traceback.format_exc())
+                    status_placeholder.empty()
+                    st.error(f"❌ Error processing question: {str(e)}")
+                    st.session_state.chat_history.append({
+                        'type': 'error',
+                        'content': f"Error: {str(e)}",
+                        'timestamp': time.strftime("%H:%M:%S")
+                    })
             
             elif query_button and not query_input.strip():
                 st.warning("⚠️ Please enter a question before clicking Ask.")
@@ -348,8 +302,8 @@ def main():
         else:
             st.warning("⚠️ Query interface not ready. Please check the setup.")
     
-    with tab2:
-        st.header("Graph Analysis")
+    elif selected_page == "📊 Graph Analysis":
+        st.header("📊 Graph Analysis")
         
         if st.session_state.index_loaded and st.session_state.graph_store:
             # Get all triplets from the graph store
@@ -405,81 +359,80 @@ def main():
                     st.divider()
                     st.subheader("🌐 Graph Visualizations")
                     
-                    # Create tabs for different visualizations
-                    viz_tab1, viz_tab2 = st.tabs(["🔺 Triplets Graph", "🏘️ Communities Graph"])
+                    # Triplets Graph Section
+                    st.subheader("🔺 Interactive Knowledge Graph")
+                    st.write("**Interactive Knowledge Graph Visualization**")
                     
-                    with viz_tab1:
-                        st.write("**Interactive Knowledge Graph Visualization**")
-                        
-                        # Add controls for triplets graph
-                        col1, col2 = st.columns([3, 1])
-                        with col2:
-                            max_nodes = st.slider(
-                                "Max nodes to display", 
-                                min_value=10, 
-                                max_value=min(100, len(triplets)), 
-                                value=min(50, len(triplets)),
-                                help="Limit nodes for better performance"
-                            )
-                        
-                        with st.spinner("Creating triplets graph..."):
-                            triplets_fig = create_triplets_graph(triplets, max_nodes)
-                            if triplets_fig:
-                                st.plotly_chart(triplets_fig, use_container_width=True)
-                            else:
-                                st.error("Could not create triplets graph")
+                    # Add controls for triplets graph
+                    col1, col2 = st.columns([3, 1])
+                    with col2:
+                        max_nodes = st.slider(
+                            "Max nodes to display", 
+                            min_value=10, 
+                            max_value=min(100, len(triplets)), 
+                            value=min(50, len(triplets)),
+                            help="Limit nodes for better performance"
+                        )
                     
-                    with viz_tab2:
-                        st.write("**Community Structure Visualization**")
-                        
-                        with st.spinner("Creating communities graph..."):
-                            communities_fig = create_communities_graph(st.session_state.graph_store)
-                            if communities_fig:
-                                st.plotly_chart(communities_fig, use_container_width=True)
-                                
-                                # Show community details
-                                try:
-                                    communities = st.session_state.graph_store.get_community_summaries()
-                                    if communities:
-                                        st.subheader("📋 Community Details")
-                                        for community_id, summary in communities.items():
-                                            with st.expander(f"Community {community_id} - Summary"):
-                                                st.write(summary)
-                                except Exception as e:
-                                    st.warning(f"Could not load community details: {e}")
-                            else:
-                                st.warning("Could not create communities graph. Communities may not be built yet.")
-                                if st.button("🔨 Build Communities"):
-                                    with st.spinner("Building communities..."):
-                                        try:
-                                            st.session_state.graph_store.build_communities()
-                                            st.success("Communities built successfully! Refresh to see the graph.")
-                                            st.rerun()
-                                        except Exception as e:
-                                            st.error(f"Error building communities: {e}")
+                    with st.spinner("Creating triplets graph..."):
+                        triplets_fig = create_triplets_graph(triplets, max_nodes)
+                        if triplets_fig:
+                            st.plotly_chart(triplets_fig, use_container_width=True)
+                        else:
+                            st.error("Could not create triplets graph")
+                    
+                    # Communities Graph Section
+                    st.divider()
+                    st.subheader("🏘️ Community Structure")
+                    st.write("**Community Structure Visualization**")
+                    
+                    with st.spinner("Creating communities graph..."):
+                        communities_fig = create_communities_graph(st.session_state.graph_store)
+                        if communities_fig:
+                            st.plotly_chart(communities_fig, use_container_width=True)
+                            
+                            # Show community details
+                            try:
+                                communities = st.session_state.graph_store.get_community_summaries()
+                                if communities:
+                                    st.subheader("📋 Community Details")
+                                    for community_id, summary in communities.items():
+                                        with st.expander(f"Community {community_id} - Summary"):
+                                            st.write(summary)
+                            except Exception as e:
+                                st.warning(f"Could not load community details: {e}")
+                        else:
+                            st.warning("Could not create communities graph. Communities may not be built yet.")
+                            if st.button("🔨 Build Communities"):
+                                with st.spinner("Building communities..."):
+                                    try:
+                                        # Clear cache file if it exists
+                                        os.makedirs(DEFAULT_COMMUNITY_FOLDER, exist_ok=True)
+                                        community_file_path = os.path.join(DEFAULT_COMMUNITY_FOLDER, "summary.json")
+                                        if os.path.exists(community_file_path):
+                                            os.remove(community_file_path)
+                                            st.info("Cleared existing community cache")
+                                        
+                                        # Force rebuild communities
+                                        st.session_state.graph_store.community_summary = {}
+                                        st.session_state.graph_store.entity_info = None
+                                        st.session_state.graph_store.build_communities()
+                                        st.success("Communities built successfully! Refresh to see the graph.")
+                                        st.rerun()
+                                    except Exception as e:
+                                        st.error(f"Error building communities: {e}")
                 
                 else:
                     st.warning("No triplets found in the knowledge graph.")
                 
-                # Show community information if available (legacy section)
-                st.divider()
-                if hasattr(st.session_state.graph_store, 'get_community_summaries'):
-                    try:
-                        communities = st.session_state.graph_store.get_community_summaries()
-                        if communities:
-                            st.subheader("🏘️ Community Summaries")
-                            for i, (community_id, summary) in enumerate(communities.items()):
-                                if i < 5:  # Show first 5 communities
-                                    with st.expander(f"Community {community_id}"):
-                                        st.write(summary)
-                    except Exception as e:
-                        st.warning(f"Could not load community summaries: {e}")
-                        
             except Exception as e:
                 st.error(f"Error loading triplets: {e}")
                 st.error(traceback.format_exc())
         else:
             st.warning("⚠️ Graph analysis not available. Please check the setup.")
+    
+    else:
+        st.warning("⚠️ Unknown page selected.")
     
     # Footer
     st.divider()

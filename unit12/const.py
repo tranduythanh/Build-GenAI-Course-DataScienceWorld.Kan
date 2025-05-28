@@ -74,3 +74,4 @@ DEFAULT_SIMILARITY_TOP_K = 10
 # GraphRAG Configuration
 DEFAULT_MAX_CLUSTER_SIZE = 5
 DEFAULT_NUM_WORKERS = 4
+DEFAULT_COMMUNITY_FOLDER = "community"  # Default folder for community summaries

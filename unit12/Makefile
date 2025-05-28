@@ -49,7 +49,7 @@ test-connection:
 	cd tests && python test_neo4j_connection.py --connection-only
 
 run:
-	streamlit run app.py
+	streamlit run app.py --server.runOnSave false --server.fileWatcherType none
 
 # Cleanup
 clean:

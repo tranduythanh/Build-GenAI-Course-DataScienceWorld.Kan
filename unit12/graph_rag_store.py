@@ -1,4 +1,6 @@
 import re
+import json
+import os
 import networkx as nx
 from graspologic.partition import hierarchical_leiden
 from collections import defaultdict
@@ -6,22 +8,36 @@ from collections import defaultdict
 from llama_index.graph_stores.neo4j import Neo4jPropertyGraphStore
 from llama_index.core.llms import ChatMessage
 
-import os
 from llama_index.llms.openai import OpenAI
 from llama_index.core import Settings
-from const import OPENAI_API_KEY, DEFAULT_MODEL, NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD
+from const import OPENAI_API_KEY, DEFAULT_MODEL, NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD, DEFAULT_COMMUNITY_FOLDER, DEFAULT_MAX_CLUSTER_SIZE
 
 class GraphRAGStore(Neo4jPropertyGraphStore):
+    """
+    GraphRAG Store extending Neo4jPropertyGraphStore with community detection and caching.
+    
+    Default Configuration:
+    - Community summaries saved to: community/summary.json
+    - Max cluster size: 5 (from DEFAULT_MAX_CLUSTER_SIZE)
+    - Auto-saves community summaries after building
+    - Auto-loads from cache if available
+    """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.community_summary = {}
         self.entity_info = None
-        self.max_cluster_size = 5
+        self.max_cluster_size = DEFAULT_MAX_CLUSTER_SIZE  # Use constant from config
         self.llm = None  # Will be set externally
+        self.data_folder = DEFAULT_COMMUNITY_FOLDER  # Use constant for consistency
 
     def set_llm(self, llm):
         """Set the LLM for community summary generation."""
         self.llm = llm
+
+    def set_community_folder(self, folder_path: str):
+        """Set the folder path for saving/loading community data."""
+        self.data_folder = folder_path
+        print(f"ℹ️ Community data folder set to: {folder_path}")
 
     def get_triplets(self):
         """Override the parent method to use compatible Cypher syntax."""
@@ -97,6 +113,7 @@ class GraphRAGStore(Neo4jPropertyGraphStore):
 
     def build_communities(self):
         """Builds communities from the graph and summarizes them."""
+        print("🏗️ Building communities from Neo4j graph...")
         nx_graph = self._create_nx_graph()
         community_hierarchical_clusters = hierarchical_leiden(
             nx_graph, max_cluster_size=self.max_cluster_size
@@ -105,6 +122,10 @@ class GraphRAGStore(Neo4jPropertyGraphStore):
             nx_graph, community_hierarchical_clusters
         )
         self._summarize_communities(community_info)
+        print(f"✅ Built {len(self.community_summary)} communities with summaries")
+        
+        # Automatically save to file after building
+        self.save_community_summaries_to_file()
 
     def _create_nx_graph(self):
         """Converts internal graph representation to NetworkX graph."""
@@ -158,11 +179,89 @@ class GraphRAGStore(Neo4jPropertyGraphStore):
             ] = self.generate_community_summary(details_text)
 
     def get_community_summaries(self):
-        """Returns the community summaries, building them if not already done."""
+        """Returns the community summaries, loading from file or building them if not already done."""
+        print(f"🔍 get_community_summaries called. Current summaries count: {len(self.community_summary)}")
+        print(f"🔍 entity_info status: {type(self.entity_info)} with {len(self.entity_info) if self.entity_info else 0} entities")
+        
+        # First try to load from file if we don't have summaries yet
         if not self.community_summary:
-            self.build_communities()
+            # Try to load from file first
+            if self.load_community_summaries_from_file():
+                print("✅ Using community summaries from file")
+                return self.community_summary
+            else:
+                print("ℹ️ Building communities from Neo4j graph...")
+                # Build from Neo4j if file doesn't exist
+                self.build_communities()
+                # Save to file for future use
+                self.save_community_summaries_to_file()
+        
         return self.community_summary
     
+    def initialize_from_cache(self):
+        """Initialize community data from cache during startup."""
+        print("🚀 Initializing community data from cache...")
+        if self.load_community_summaries_from_file():
+            print(f"✅ Initialized with {len(self.community_summary)} communities and {len(self.entity_info)} entities from cache")
+            return True
+        else:
+            print("ℹ️ No cache found, will build communities when needed")
+            return False
+    
+    def load_community_summaries_from_file(self):
+        """Load community summaries from summary.json if it exists."""
+        community_file = os.path.join(self.data_folder, "summary.json")
+        
+        print(f"🔍 Loading community summaries from: {community_file}")
+        print(f"🔍 File exists: {os.path.exists(community_file)}")
+        
+        if os.path.exists(community_file):
+            try:
+                with open(community_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    self.community_summary = data.get('community_summaries', {})
+                    self.entity_info = data.get('entity_info', {})
+                
+                print(f"✅ Loaded {len(self.community_summary)} community summaries from {community_file}")
+                print(f"✅ Loaded entity_info for {len(self.entity_info)} entities")
+                print(f"🔍 Sample entity_info keys: {list(self.entity_info.keys())[:5]}")
+                print(f"🔍 entity_info type: {type(self.entity_info)}")
+                return True
+            except Exception as e:
+                print(f"❌ Error loading community summaries from file: {e}")
+                import traceback
+                traceback.print_exc()
+                return False
+        else:
+            print(f"ℹ️ Community summary file not found: {community_file}")
+            return False
+    
+    def save_community_summaries_to_file(self):
+        """Save community summaries to summary.json."""
+        # Ensure data folder exists
+        os.makedirs(self.data_folder, exist_ok=True)
+        
+        community_file = os.path.join(self.data_folder, "summary.json")
+        
+        try:
+            data = {
+                'community_summaries': self.community_summary,
+                'entity_info': self.entity_info,
+                'metadata': {
+                    'total_communities': len(self.community_summary),
+                    'total_entities': len(self.entity_info) if self.entity_info else 0,
+                    'max_cluster_size': self.max_cluster_size
+                }
+            }
+            
+            with open(community_file, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+                
+            print(f"✅ Saved {len(self.community_summary)} community summaries to {community_file}")
+            return True
+        except Exception as e:
+            print(f"❌ Error saving community summaries to file: {e}")
+            return False
 
 if __name__ == "__main__":    
     # Example usage of GraphRAGStore

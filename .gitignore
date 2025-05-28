@@ -18,3 +18,5 @@ unit11/logs
 unit11/data/cache
 unit12/data/*_converted.md
 unit12/**/*.pkl
+unit12/community
+

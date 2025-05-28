@@ -41,12 +41,29 @@ def setup_llm():
 def setup_graph_store(llm):
     """Setup the Neo4j graph store."""
     try:
+        # Check if we already have a cached graph store in session state
+        if hasattr(st.session_state, 'cached_graph_store') and st.session_state.cached_graph_store is not None:
+            print("♻️ Using cached GraphRAGStore from session state")
+            return st.session_state.cached_graph_store
+        
+        print("🆕 Creating new GraphRAGStore instance")
         graph_store = GraphRAGStore(
             username=NEO4J_USERNAME,
             password=NEO4J_PASSWORD,
             url=NEO4J_URI
         )
         graph_store.set_llm(llm)
+        
+        # Initialize community data from cache during startup
+        print("🚀 Initializing community data from cache...")
+        cache_success = graph_store.initialize_from_cache()
+        print(f"💾 Cache initialization result: {cache_success}")
+        
+        # Cache in session state to avoid recreating
+        if hasattr(st, 'session_state'):
+            st.session_state.cached_graph_store = graph_store
+            print("💾 GraphRAGStore cached in session state")
+        
         return graph_store
     except Exception as e:
         print(f"❌ Error setting up graph store: {e}")

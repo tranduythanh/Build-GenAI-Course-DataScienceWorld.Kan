@@ -17,7 +17,8 @@ from const import (
     DEFAULT_CHUNK_OVERLAP,
     DEFAULT_MAX_PATHS_PER_CHUNK,
     DEFAULT_SIMILARITY_TOP_K,
-    DEFAULT_MODEL
+    DEFAULT_MODEL,
+    DEFAULT_COMMUNITY_FOLDER
 )
 
 # Import shared utility functions from utils.py
@@ -106,6 +107,12 @@ def main():
     print(f"  - Max paths per chunk: {max_paths_per_chunk} (increased for better extraction)")
     print(f"  - Similarity top K: {similarity_top_k}")
     print(f"  - Model: {DEFAULT_MODEL} (128K context window)")
+    
+    # Ensure necessary folders exist
+    print_progress("Ensuring required folders exist...")
+    os.makedirs(DEFAULT_COMMUNITY_FOLDER, exist_ok=True)
+    os.makedirs("./index_data", exist_ok=True)
+    print(f"✅ Folders checked/created: {DEFAULT_COMMUNITY_FOLDER}, index_data")
     
     try:
         total_steps = 10
