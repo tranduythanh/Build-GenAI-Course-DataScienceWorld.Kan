@@ -87,10 +87,10 @@ Before running Python tests, ensure the following services are installed and run
    ```
 
 3. **Poetry**: Install Poetry for dependency management
-   ```bash
-   pip install poetry
-   poetry install
-   ```
+  ```bash
+  pip install poetry
+  poetry install --no-root --with dev
+  ```
 
 ### Database Setup
 - Ensure Neo4j is running and accessible (see `.env` for connection details)
