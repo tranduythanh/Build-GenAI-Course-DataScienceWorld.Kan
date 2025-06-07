@@ -1,0 +1,30 @@
+[tool.poetry]
+name = "unit13"
+version = "0.1.0"
+description = "Bitcoin Q&A Agent"
+authors = ["DataScienceWorld"]
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "~3.11.0"
+langgraph = "*"
+langchain-openai = "*"
+langchain-community = "*"
+yfinance = "^0.2.61"
+pandas = "*"
+pandas_ta = "*"
+feedparser = "*"
+requests = "*"
+tavily-python = "^0.7.5"
+langgraph-checkpoint-sqlite = "^2.0.10"
+numpy = "<2.0"
+
+[tool.poetry.group.dev.dependencies]
+black = "*"
+isort = "*"
+flake8 = "*"
+mypy = "*"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

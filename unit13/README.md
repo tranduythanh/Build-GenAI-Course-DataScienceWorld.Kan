@@ -104,3 +104,19 @@ User: "Tình hình thị trường Bitcoin hôm nay?"
 ### Infrastructure
 - **Redis**: Simple caching (optional for MVP)
 - **SQLite**: Lightweight database for cache
+
+## Development Setup
+
+### Install Poetry and Dependencies
+```bash
+pip install --user poetry
+cd unit13
+poetry install --no-root --with dev
+```
+
+### Run Tests and Type Checks
+```bash
+poetry run flake8 agents app.py tests __init__.py
+poetry run mypy --ignore-missing-imports --explicit-package-bases agents app.py tests __init__.py
+make test
+```
