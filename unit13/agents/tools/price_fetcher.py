@@ -1,15 +1,14 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
-from typing import Any, Dict
+from typing import Any
 from datetime import datetime
 
 import yfinance as yf
+from langchain_core.tools import BaseTool
 
 
-@dataclass
-class PriceFetcher:
+class PriceFetcher(BaseTool):
     """Fetch current or historical Bitcoin price using yfinance."""
 
     name: str = "price_fetcher"
@@ -22,7 +21,8 @@ class PriceFetcher:
     Return the price of bitcoin for the last 5 days in json format
 '''.strip()
 
-    def __call__(self, period: str = "1d") -> str:
+    def _run(self, *args: Any, **kwargs: Any) -> Any:
+        period = args[0] if args else kwargs.get('period', '1d')
         try:
             data = yf.Ticker("BTC-USD").history(period=period)
             if data.empty:
@@ -45,7 +45,13 @@ class PriceFetcher:
         except Exception as exc:  # pragma: no cover - network access
             return f"Error fetching price: {exc}"
 
+    async def _arun(self, *args: Any, **kwargs: Any) -> Any:
+        """Use the tool asynchronously."""
+        # For yfinance API calls without specific async requirements,
+        # we can delegate to the sync implementation
+        return self._run(*args, **kwargs)
+
 
 if __name__ == "__main__":
     tool = PriceFetcher()
-    print(tool())
+    print(tool._run())

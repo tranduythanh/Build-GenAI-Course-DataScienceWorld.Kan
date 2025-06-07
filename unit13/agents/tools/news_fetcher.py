@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any, Dict
+from typing import Any
 
 import feedparser
+from langchain_core.tools import BaseTool
 
 
-@dataclass
-class NewsFetcher:
+class NewsFetcher(BaseTool):
     """Fetch latest Bitcoin news from a public RSS feed."""
 
     name: str = "news_fetcher"
@@ -22,7 +21,8 @@ class NewsFetcher:
     Return the latest 30 news about bitcoin in plain text
 '''.strip()
 
-    def __call__(self, max_entries: int = 30) -> str:
+    def _run(self, *args: Any, **kwargs: Any) -> Any:
+        max_entries = args[0] if args else kwargs.get('max_entries', 30)
         url = self.FEED_URL
 
         try:
@@ -33,7 +33,13 @@ class NewsFetcher:
         except Exception as exc:  # pragma: no cover - network access
             return f"Error fetching news: {exc}"
 
+    async def _arun(self, *args: Any, **kwargs: Any) -> Any:
+        """Use the tool asynchronously."""
+        # For RSS feed parsing without specific async requirements,
+        # we can delegate to the sync implementation
+        return self._run(*args, **kwargs)
+
 
 if __name__ == "__main__":
     tool = NewsFetcher()
-    print(tool())
+    print(tool._run())

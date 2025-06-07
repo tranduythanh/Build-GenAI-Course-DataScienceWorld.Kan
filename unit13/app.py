@@ -16,7 +16,8 @@ def main() -> None:
             break
         if not question:
             continue
-        print(run_query(agent, question))
+        print(f"\033[91m{question}\033[0m")
+        print(f"\033[92m{run_query(agent, question)}\033[0m")
 
 
 if __name__ == "__main__":

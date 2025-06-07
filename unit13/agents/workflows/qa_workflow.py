@@ -27,5 +27,5 @@ def example_questions() -> List[str]:
 if __name__ == "__main__":
     agent = default_agent()
     for q in example_questions():
-        print(q)
-        print(run_query(agent, q))
+        print(f"\033[91m{q}\033[0m")
+        print(f"\033[92m{run_query(agent, q)}\033[0m")
