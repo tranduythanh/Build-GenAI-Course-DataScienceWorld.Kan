@@ -10,7 +10,7 @@ Dự án cung cấp một hệ thống hỏi đáp về Bitcoin dựa trên Lang
 2. **Tool Integration**: Tích hợp các tool thu thập và phân tích dữ liệu
 3. **Real-time Data**: Lấy dữ liệu thị trường theo yêu cầu
 4. **Technical Analysis**: Tính toán chỉ số kỹ thuật cơ bản
-5. **Smart Query Processing**: Hỗ trợ step-back strategy và question rephrasing
+5. **Simple Workflow**: Agent cơ bản với LLM → Tool → Response flow
 
 ## 🏗️ Cấu trúc thư mục
 ```
@@ -37,6 +37,33 @@ Dự án cung cấp một hệ thống hỏi đáp về Bitcoin dựa trên Lang
 - **NewsFetcher**: Lấy tiêu đề tin tức mới nhất qua RSS (`feedparser`)
 - **MarketData**: Lấy dữ liệu thị trường cơ bản từ CoinGecko (`requests`)
 - **Tavily Search**: Tool tra cứu Internet dùng trong agent mặc định
+
+## 🔄 Luồng hoạt động Agent
+
+```mermaid
+graph TD
+    A["User Input<br/>Bitcoin Question"] --> B["LLM Node<br/>(GPT-4o-mini)"]
+    
+    B --> C{"Need Tools?<br/>exists_action()"}
+    
+    C -->|Yes| D["Action Node<br/>take_action()"]
+    C -->|No| H["Final Answer<br/>to User"]
+    
+    D --> E["Tool Execution"]
+    E --> F["PriceFetcher"]
+    E --> G["TechnicalAnalyzer"] 
+    E --> I["NewsFetcher"]
+    E --> J["MarketData"]
+    E --> K["Tavily Search"]
+    
+    F --> L["Tool Results<br/>as ToolMessage"]
+    G --> L
+    I --> L
+    J --> L
+    K --> L
+    
+    L --> B
+```
 
 ## 📊 Các chỉ số kỹ thuật hỗ trợ
 
