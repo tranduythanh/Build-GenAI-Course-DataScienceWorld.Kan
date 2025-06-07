@@ -34,11 +34,11 @@ class MarketData(BaseTool):
         return self._run(*args, **kwargs)
 
     def prompt_description(self) -> str:
-        return f'''
+        return f"""
 {self.name}:
     Example usage: {self.name}
     Return the market data of bitcoin in json format
-'''.strip()
+""".strip()
 
 
 if __name__ == "__main__":

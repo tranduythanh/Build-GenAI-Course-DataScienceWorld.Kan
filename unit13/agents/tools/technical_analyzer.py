@@ -18,14 +18,14 @@ class TechnicalAnalyzer(BaseTool):
     )
 
     def prompt_description(self) -> str:
-        return f'''
+        return f"""
 {self.name}:
     Example usage: {self.name} 30d
     Return the technical analysis of bitcoin for the last 30 days in json format
-'''.strip()
+""".strip()
 
     def _run(self, *args: Any, **kwargs: Any) -> Any:
-        period = args[0] if args else kwargs.get('period', '30d')
+        period = args[0] if args else kwargs.get("period", "30d")
         try:
             data = yf.Ticker("BTC-USD").history(period=period)
             if data.empty:

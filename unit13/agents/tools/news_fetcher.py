@@ -15,14 +15,14 @@ class NewsFetcher(BaseTool):
     FEED_URL: str = "https://news.bitcoin.com/feed/"
 
     def prompt_description(self) -> str:
-        return f'''
+        return f"""
 {self.name}:
     Example usage: {self.name} 30
     Return the latest 30 news about bitcoin in plain text
-'''.strip()
+""".strip()
 
     def _run(self, *args: Any, **kwargs: Any) -> Any:
-        max_entries = args[0] if args else kwargs.get('max_entries', 30)
+        max_entries = args[0] if args else kwargs.get("max_entries", 30)
         url = self.FEED_URL
 
         try:
