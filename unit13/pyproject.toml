@@ -16,6 +16,8 @@ pandas_ta = "*"
 feedparser = "*"
 requests = "*"
 tavily-python = "^0.7.5"
+langgraph-checkpoint-sqlite = "^2.0.10"
+numpy = "<2.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "*"

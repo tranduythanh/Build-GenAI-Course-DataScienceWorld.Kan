@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import operator
 from dataclasses import dataclass
-from typing import Annotated, Dict, List, TypedDict
+from typing import Annotated, Dict, List, TypedDict, Union
+
+from langchain_core.runnables import Runnable
 
 from langchain_community.tools.tavily_search import TavilySearchResults
 from langchain_core.messages import AnyMessage, SystemMessage, ToolMessage
@@ -25,12 +27,9 @@ class AgentState(TypedDict):
 class BitcoinQAAgent:
     """LangGraph-based agent for Bitcoin Q&A."""
 
-    model: ChatOpenAI
-    tools: List[AnyMessage]
-    system: str = ""
 
-    def __post_init__(self) -> None:
-        checkpointer = SqliteSaver.from_conn_string(":memory:")
+    def __init__(self, model , tools: List[AnyMessage], system: str = "", checkpointer = None) -> None:
+        self.system = system
         graph = StateGraph(AgentState)
         graph.add_node("llm", self.call_openai)
         graph.add_node("action", self.take_action)
@@ -39,14 +38,12 @@ class BitcoinQAAgent:
         )
         graph.add_edge("action", "llm")
         graph.set_entry_point("llm")
-        self.graph = graph.compile(checkpointer=checkpointer)
-        self.tool_map = {t.name: t for t in self.tools}
-        self.model = self.model.bind_tools(self.tools)
-
-    def exists_action(self, state: AgentState) -> bool:
-        result = state["messages"][-1]
-        return len(getattr(result, "tool_calls", [])) > 0
-
+        self.graph = graph.compile(
+            checkpointer=checkpointer
+        )
+        self.tool_map = {t.name: t for t in tools}
+        self.model = model.bind_tools(tools)
+    
     def call_openai(self, state: AgentState) -> Dict[str, List[AnyMessage]]:
         messages = state["messages"]
         if self.system:
@@ -54,22 +51,29 @@ class BitcoinQAAgent:
         message = self.model.invoke(messages)
         return {"messages": [message]}
 
+    def exists_action(self, state: AgentState) -> bool:
+        result = state["messages"][-1]
+        return len(getattr(result, "tool_calls", [])) > 0
+
+
     def take_action(self, state: AgentState) -> Dict[str, List[AnyMessage]]:
         tool_calls = state["messages"][-1].tool_calls
         results: List[ToolMessage] = []
-        for call in tool_calls:
-            tool = self.tool_map.get(call["name"])
+        for t in tool_calls:
+            print(f"Calling tool {t['name']}")
+            tool = self.tool_map.get(t["name"])
             if not tool:
                 result = "bad tool name, retry"
             else:
-                result = tool(call.get("args", {}))
+                result = tool.invoke(t.get("args", {}))
             results.append(
                 ToolMessage(
-                    tool_call_id=call["id"],
-                    name=call["name"],
+                    tool_call_id=t["id"],
+                    name=t["name"],
                     content=str(result),
                 )
             )
+        print("Back to model")
         return {"messages": results}
 
 
@@ -77,12 +81,17 @@ def default_agent() -> BitcoinQAAgent:
     """Create a default BitcoinQAAgent with predefined tools."""
     tools = [
         TavilySearchResults(max_results=4),
-        PriceFetcher(),
-        TechnicalAnalyzer(),
-        NewsFetcher(),
-        MarketData(),
     ]
 
+    # Create tool descriptions, handling both custom tools and LangChain tools
+    tool_descriptions = []
+    for tool in tools:
+        if hasattr(tool, 'prompt_description'):
+            tool_descriptions.append(tool.prompt_description())
+        else:
+            # For LangChain tools like TavilySearchResults
+            tool_descriptions.append(f"{tool.name}: {tool.description}")
+    
     prompt = ('''
 Answer the following questions as best you can. You have access to the following tools:
 
@@ -94,7 +103,7 @@ Use Thought to describe your thoughts about the question you have been Use Actio
 Observation will be the result of running those actions.
 ... (this Thought/Action/Action Input/Observation can repeat N times)
 '''.
-format(tools="\n\n".join([t.prompt_description() for t in tools])).
+format(tools="\n\n".join(tool_descriptions)).
 strip()
     )
     
