@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from typing import Any, Dict
 
@@ -17,21 +18,23 @@ class TechnicalAnalyzer:
         "Compute simple technical indicators like SMA and RSI for Bitcoin."
     )
 
-    def __call__(self, args: Dict[str, Any] | None = None) -> str:
-        symbol = "BTC-USD"
-        period = "30d"
-        if args:
-            symbol = args.get("symbol", symbol)
-            period = args.get("period", period)
+    def prompt_description(self) -> str:
+        return f'''
+{self.name}:
+    Example usage: {self.name} 30d
+    Return the technical analysis of bitcoin for the last 30 days in json format
+'''.strip()
+
+    def __call__(self, period: str = "30d") -> str:
         try:
-            data = yf.Ticker(symbol).history(period=period)
+            data = yf.Ticker("BTC-USD").history(period=period)
             if data.empty:
                 return "No data to analyze."
             df = pd.DataFrame(data)
             df["sma20"] = ta.sma(df["Close"], length=20)
             df["rsi"] = ta.rsi(df["Close"], length=14)
             latest = df.iloc[-1]
-            return f"SMA20: {latest['sma20']:.2f}, RSI: {latest['rsi']:.2f}"
+            return json.dumps(latest.to_dict())
         except Exception as exc:  # pragma: no cover - network access
             return f"Error calculating indicators: {exc}"
 

@@ -20,6 +20,7 @@ def example_questions() -> List[str]:
     return [
         "Giá Bitcoin hện tại là bao nhiêu?",
         "RSI của Bitcoin tuần này bao nhiêu?",
+        "Dựa theo các dữ liệu của Bitcoin, tôi có nên mua hay nên bán Bitcoin hôm nay?",
     ]
 
 

@@ -15,15 +15,21 @@ class NewsFetcher:
 
     FEED_URL: str = "https://news.bitcoin.com/feed/"
 
-    def __call__(self, args: Dict[str, Any] | None = None) -> str:
+    def prompt_description(self) -> str:
+        return f'''
+{self.name}:
+    Example usage: {self.name} 30
+    Return the latest 30 news about bitcoin in plain text
+'''.strip()
+
+    def __call__(self, max_entries: int = 30) -> str:
         url = self.FEED_URL
-        if args:
-            url = args.get("url", url)
+
         try:
             feed = feedparser.parse(url)
-            entries = feed.entries[:3]
-            headlines = [entry.title for entry in entries]
-            return " | ".join(headlines)
+            entries = feed.entries[:max_entries]
+            headlines = [str(entry.title) for entry in entries]
+            return "\n".join(headlines)
         except Exception as exc:  # pragma: no cover - network access
             return f"Error fetching news: {exc}"
 

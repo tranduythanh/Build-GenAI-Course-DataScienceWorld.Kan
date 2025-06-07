@@ -7,6 +7,7 @@ help:
 		echo "  run      Run CLI app"
 
 install:
+	poetry config virtualenvs.in-project true
 	poetry install --no-root
 
 test:

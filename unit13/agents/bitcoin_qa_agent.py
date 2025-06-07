@@ -82,9 +82,21 @@ def default_agent() -> BitcoinQAAgent:
         NewsFetcher(),
         MarketData(),
     ]
-    prompt = (
-        "You are a Bitcoin research assistant. Use the provided tools to "
-        "answer questions about the Bitcoin market."
+
+    prompt = ('''
+Answer the following questions as best you can. You have access to the following tools:
+
+{tools}
+
+You run in a loop of Thought, Action, PAUSE, Observation.
+At the end of the loop you output an Answer
+Use Thought to describe your thoughts about the question you have been Use Action to run one of the actions available to you - then return PAUS
+Observation will be the result of running those actions.
+... (this Thought/Action/Action Input/Observation can repeat N times)
+'''.
+format(tools="\n\n".join([t.prompt_description() for t in tools])).
+strip()
     )
-    model = ChatOpenAI(model="gpt-3.5-turbo")
+    
+    model = ChatOpenAI(model="gpt-4o-mini", temperature=0.7)
     return BitcoinQAAgent(model=model, tools=tools, system=prompt)

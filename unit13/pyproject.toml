@@ -6,15 +6,16 @@ authors = ["DataScienceWorld"]
 package-mode = false
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = "~3.11.0"
 langgraph = "*"
 langchain-openai = "*"
 langchain-community = "*"
-yfinance = "*"
+yfinance = "^0.2.61"
 pandas = "*"
 pandas_ta = "*"
 feedparser = "*"
 requests = "*"
+tavily-python = "^0.7.5"
 
 [tool.poetry.group.dev.dependencies]
 black = "*"
