@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "unit14"
+version = "0.1.0"
+description = "TOEIC Speaking Tutor PoC"
+authors = ["DataScienceWorld"]
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "3.11.12"
+crewai = "*"
+streamlit = "*"
+Pillow = "*"
+azure-cognitiveservices-speech = "*"
+
+[tool.poetry.group.dev.dependencies]
+black = "*"
+isort = "*"
+flake8 = "*"
+mypy = "*"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

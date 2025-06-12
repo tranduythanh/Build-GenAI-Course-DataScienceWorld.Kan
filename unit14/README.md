@@ -375,7 +375,7 @@ Test takers at level 1 left a significant part of the TOEIC Speaking Test unansw
 - **🏆 Mastery Records**: Documentation of completed pictures and advancement criteria
 
 ### 🔌 Integration Points
-- **🖼️ Image Input**: Upload TOEIC pictures for analysis
+- **🖼️ Image Input**: Select TOEIC pictures stored in `data/images` for analysis
 - **🎵 Audio Input**: Recording student responses
 - **⚡ Real-time Processing**: Instant processing and feedback
 - **📊 Progress Dashboard**: Progress visualization and recommendations
@@ -383,3 +383,24 @@ Test takers at level 1 left a significant part of the TOEIC Speaking Test unansw
 ---
 
 > **💡 Note**: The system is designed to create a personalized learning experience that helps students effectively and systematically improve their TOEIC Speaking scores.
+## 🚀 MVP Proof of Concept
+
+Thư mục này cung cấp một phiên bản tối giản dựa trên CrewAI nhằm minh họa quy trình học TOEIC Speaking thông qua mô hình multi-agent. Các agent được triển khai trong `agents/` sử dụng crewAI `Agent` và các tool Python cơ bản. Ứng dụng demo được viết bằng Streamlit.
+
+### LLM Configuration
+- 💬 **gpt-4o-mini**: mô hình mặc định cho các agent
+- 🖼️ **gpt-4o**: dùng riêng cho phần phân tích hình ảnh
+
+Ngoài ra, PoC có thêm tool chuyển đổi audio sang text kèm đánh giá phát âm sử dụng **Azure Speech Pronunciation Assessment**.
+- 📋 **SQLite logging**: lưu trữ thống kê và phản hồi vào file `toeic.db`.
+
+### Cài đặt và chạy thử
+```bash
+pip install poetry
+cd unit14
+make install
+make test       # chạy unit tests
+make run        # chạy giao diện Streamlit
+```
+
+Trước khi chạy, hãy thêm các file hình ảnh TOEIC vào thư mục `data/images` để lựa chọn trong giao diện.
