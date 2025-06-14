@@ -1,0 +1,26 @@
+[tool.poetry]
+name = "unit14"
+version = "0.1.0"
+description = "Bitcoin Trading System"
+authors = ["DataScienceWorld"]
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "3.11.12"
+crewai = "0.28.8"
+crewai_tools = "0.1.6"
+langchain-community = "0.0.29"
+yfinance = "*"
+pandas = "*"
+pandas_ta = "*"
+requests = "*"
+
+[tool.poetry.group.dev.dependencies]
+black = "*"
+isort = "*"
+flake8 = "*"
+mypy = "*"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

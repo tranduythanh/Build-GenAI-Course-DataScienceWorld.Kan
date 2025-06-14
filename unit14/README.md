@@ -21,6 +21,8 @@ pip install crewai==0.28.8 crewai_tools==0.1.6 langchain_community==0.0.29
 - Phân tích các chỉ số kỹ thuật cơ bản:
   - SMA (Simple Moving Average)
   - RSI (Relative Strength Index)
+  - BB (Bollinger Bands)
+  - MACD (Moving Average Convergence Divergence)
 - Đưa ra dự báo xu hướng
 
 ### Trading Agent
