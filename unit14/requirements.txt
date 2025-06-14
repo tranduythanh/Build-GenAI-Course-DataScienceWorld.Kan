@@ -1,6 +1,7 @@
-crewai==0.28.8
-crewai_tools==0.1.6
-langchain_community==0.0.29
+crewai==0.130.0
+crewai_tools==0.47.1
+langchain_community==0.3.25
+pydantic>=2.11,<3
 yfinance
 pandas
 pandas_ta
