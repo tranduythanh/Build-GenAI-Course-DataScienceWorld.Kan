@@ -1,17 +1,16 @@
 .PHONY: help install test run
 
 help:
-	@echo "Unit13 Commands:" && \
-		echo "  install  Install dependencies via Poetry" && \
-		echo "  test     Run unit tests" && \
+	@echo "Unit13 Commands:" && \\
+		echo "  install  Install dependencies via uv" && \\
+		echo "  test     Run unit tests" && \\
 		echo "  run      Run CLI app"
 
 install:
-	poetry config virtualenvs.in-project true
-	poetry install --no-root
+	uv pip install -r requirements.txt
 
 test:
-	poetry run python -m unittest discover -v tests
+	.venv/bin/python -m unittest discover -v tests
 
 run:
-	poetry run python app.py
+	.venv/bin/python app.py
