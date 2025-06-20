@@ -29,7 +29,7 @@ This repository contains a multi-module Python project for knowledge graph, RAG,
 - **Database operations**: Neo4j integration, Cypher queries, and graph management
 - **Testing**: Python unit tests (`test_*.py` files) and integration tests
 - **Task automation**: Makefile targets for setup, build, test, and run
-- **Dependency management**: Poetry for Python package/version control
+- **Dependency management**: uv for Python package/version control
 
 ### Out of Scope for OpenAI Codex
 - **Frontend development**: No React/Next.js/TypeScript UI (except Streamlit)
@@ -41,7 +41,7 @@ This repository contains a multi-module Python project for knowledge graph, RAG,
 
 ### General Conventions for OpenAI Codex
 - Use Python 3.11.12 for all scripts and modules
-- Manage dependencies and virtual environments with Poetry (`pyproject.toml`)
+- Manage dependencies and virtual environments with uv (`requirements.txt` or `pyproject.toml`)
 - Follow PEP8 and Black formatting standards
 - Use meaningful variable and function names
 - Add comments for complex business logic
@@ -86,10 +86,11 @@ Before running Python tests, ensure the following services are installed and run
    pyenv local 3.11.12
    ```
 
-3. **Poetry**: Install Poetry for dependency management
+3. **uv**: Install uv for dependency management
   ```bash
-  pip install poetry
-  poetry install --no-root --with dev
+  pip install uv
+  uv venv
+  uv pip install -r requirements.txt
   ```
 
 ### Database Setup
@@ -135,9 +136,8 @@ mypy .  # if type hints are used
 # Run all tests
 make test
 
-# Poetry checks
-poetry check
-poetry lock --check
+# Dependency checks
+uv pip check
 ```
 
 ### Failure Handling for OpenAI Codex
@@ -170,9 +170,9 @@ poetry lock --check
 ## Python & Dependency Management
 
 - Always use Python 3.11.12
-- Manage all dependencies and versions with Poetry (`pyproject.toml`, `poetry.lock`)
-- Do not use `requirements.txt` for new dependencies; update Poetry files instead
-- Use `poetry add <package>` to add new packages
+- Manage all dependencies and versions with uv (`requirements.txt` or `pyproject.toml`)
+- Prefer `requirements.txt` for new dependencies and lock with `uv pip compile`
+- Use `uv pip install -r requirements.txt` to install packages
 
 ---
 

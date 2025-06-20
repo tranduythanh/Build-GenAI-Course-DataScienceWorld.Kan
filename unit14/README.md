@@ -6,8 +6,10 @@ Dự án cung cấp một hệ thống giao dịch Bitcoin đơn giản sử d�
 
 ## 🎯 Cài đặt
 
+Yêu cầu Python 3.11.12.
+
 ```bash
-pip install crewai==0.28.8 crewai_tools==0.1.6 langchain_community==0.0.29
+uv pip install crewai==0.130.0 crewai_tools==0.47.1 langchain_community==0.3.25
 ```
 
 ## 🤖 Các Agent trong Hệ thống
@@ -62,7 +64,7 @@ graph TD
 
 1. Cài đặt các thư viện cần thiết:
 ```bash
-pip install -r requirements.txt
+uv pip install -r requirements.txt
 ```
 
 2. Chạy hệ thống:
